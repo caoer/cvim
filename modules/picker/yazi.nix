@@ -2,12 +2,18 @@
 #
 # This layer's only explorer. snacks.explorer is explicitly disabled in
 # ./snacks-picker.nix; see the comment there for why that `false` matters.
+#
+# Gated twice on purpose. nixvim's yazi module declares `dependencies =
+# [ "yazi" ]`, so enabling the plugin is what puts the yazi binary — and its
+# transitive ffmpeg — on the closure. `cvim.picker.yazi.enable = false` is
+# therefore the only way to shed those bytes without losing snacks.picker,
+# fff and trouble along with them.
 { config, lib, ... }:
 let
   cfg = config.cvim.picker;
 in
 {
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf (cfg.enable && cfg.yazi.enable) {
     plugins.yazi = {
       enable = true;
 
