@@ -6,5 +6,7 @@
 # implementation unit owns this directory and that options file; nothing
 # outside the unit writes to either.
 {
-  imports = [ ];
+  imports = [
+    ./theme.nix
+  ];
 }
