@@ -6,5 +6,9 @@
 # implementation unit owns this directory and that options file; nothing
 # outside the unit writes to either.
 {
-  imports = [ ];
+  imports = [
+    # U9a — the Lua residue. One concern per file.
+    ./clipboard.nix
+    ./yank-ref.nix
+  ];
 }
