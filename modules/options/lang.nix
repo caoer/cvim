@@ -349,7 +349,29 @@ let
       knownServers = [ "rust_analyzer" ];
       servers = [ "rust_analyzer" ];
       grammars = [ "rust" ];
-      formatters = [ "rustfmt" ];
+      # Rust ships no formatter, and this row is the reason rather than an
+      # oversight — the same shape as markdown's empty `linters` above.
+      #
+      # `rustfmt` is a 16.6 MB binary that depends on the Rust toolchain, so
+      # asking for it pulls `rustc` (961 MB) and `rustc-bootstrap` (553 MB) into
+      # an editor closure. Measured on aarch64-darwin against `.#default` plus
+      # `extendModules`, one tree, one package shape:
+      #
+      #   rust on, formatters = [ ]             +93.3 MB
+      #   rust on, formatters = [ "rustfmt" ]  +1708.4 MB
+      #
+      # 1615 MB of that is the formatter, seventeen times the language server it
+      # was accompanying. It buys nothing in the normal case twice over:
+      # `toolchain` defaults to `"prefer-devshell"`, so a project devshell's
+      # `rustfmt` already wins on `$PATH`; and rust-analyzer formats over LSP
+      # through the toolchain's own `rustfmt`, not through `conform`. The shipped
+      # copy would only ever be reached outside a devshell — which is precisely
+      # where rust-analyzer is already degraded, because it cannot run `cargo
+      # metadata` there either.
+      #
+      # A host that genuinely wants cvim to carry the binary asks for it by
+      # name: `cvim.lang.rust.formatters = [ "rustfmt" ]`.
+      formatters = [ ];
       workstation = false;
     };
   };
