@@ -9,6 +9,7 @@
   imports = [
     # U9a — the Lua residue. One concern per file.
     ./clipboard.nix
+    ./folds.nix
     ./yank-ref.nix
   ];
 }
