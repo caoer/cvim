@@ -177,6 +177,23 @@ jobs:
         # it incremental; and before `nix-store --gc` below, because after
         # collection the closure is gone and the same line becomes a full rebuild.
         #
+        # WHAT THIS GATE CANNOT SEE — read before writing "CI will catch it".
+        # Its reach is bounded by WHICH CONFIGURATIONS GET BUILT, not by how
+        # thoroughly each one is checked. The option surface offers values the
+        # three shipped outputs never instantiate, and everything reachable only
+        # through that remainder is invisible to every gate here — lint,
+        # assertions, the package build, and this check — because none of them
+        # ever constructs it. Demonstrated: a real defect fixed on 2026-07-27
+        # manifested only at `cvim.lang.*.toolchain = "devshell"`, a value
+        # `modules/options/lang.nix` documents as supported and no output uses.
+        # The package drvPaths were BYTE-IDENTICAL before and after that fix, so
+        # these checks were green either way and could not have varied with it.
+        # Building the cross-product of every option value is absurd and is not
+        # the answer; knowing the boundary is. Corollary worth acting on: an
+        # assertion rides every package build, including a host's own
+        # `extendModules` build, so a requirement expressed as an assertion
+        # reaches configurations these checks never will.
+        #
         # `nix-store --gc` between the two outputs, and `default` first so the
         # larger closure meets the emptiest store. The out-link must be removed
         # before collecting — it is an indirect GC root, and leaving it makes the

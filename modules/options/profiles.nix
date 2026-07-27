@@ -3,7 +3,12 @@
 # A profile only ever writes `mkDefault`, so picking a profile never costs you
 # the ability to override one option inside it. `null` is a real profile value:
 # it means "no cascade — every area keeps the default it declares".
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.cvim;
 in
@@ -38,5 +43,22 @@ in
   # different server default adds its row here.
   config = lib.mkIf (cfg.profile == "server") {
     cvim.lang.enable = lib.mkDefault false;
+
+    # These three rows hold the SAME 1.21 GB of clang/llvm/apple-sdk, so any one
+    # of them alone reads near zero and only the combination moves. Together they
+    # take aarch64-darwin `server` from 2,261,694,280 B to 761,696,608 B.
+    # Arms, hashes and the retainer graph: results/darwin-server-closure.md.
+    #
+    # git is here because nixvim's LUALINE module declares `dependencies = ["git"]`
+    # for its branch component — `cvim.git.enable = false` cannot remove it.
+    # gitMinimal keeps that component working and drops git-p4's python3 shebang
+    # and git-cvsserver's perl shebang, which are the only reason a text editor
+    # retains an Apple SDK.
+    dependencies.git.package = lib.mkDefault pkgs.gitMinimal;
+
+    # Remote-plugin providers for languages this profile does not ship. python3
+    # pulls apple-sdk directly; ruby pulls clang. Nothing in cvim uses either.
+    withPython3 = lib.mkDefault false;
+    withRuby = lib.mkDefault false;
   };
 }
