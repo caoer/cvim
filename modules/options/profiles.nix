@@ -17,16 +17,34 @@
 #
 # ## Rows are evidence-driven, and closure rows are not the same kind as UX rows
 #
-# The bytes in a `server` build are not where the plan assumed. Measured on a
-# real linux builder (`results/u12-linux-server-closure-breakdown.md`), against
-# the 2.757 GB x86_64-linux baseline:
+# Every closure row below carries the byte delta that justifies it, measured by
+# building the closure with and without the row on a real x86_64-linux builder.
+# An option read back is not evidence: it tells you what was written, not what
+# left the closure. Full report: `results/u12-closure-startup.md`.
 #
-#   yazi                       1.845 GB   66.9 %
-#   LSP / language toolchains  0.344 GB   12.5 %
+#   cvim.lang (area + the 8 workstation languages)   1,137,231,104 B
+#   cvim.picker.yazi                                   358,933,912 B
+#   waylandSupport                                      79,687,560 B
+#   withRuby                                            43,403,720 B
 #
-# So the two closure rows below are not equal partners, and neither is the
-# third row a closure row at all. Each is labelled with what it is, because a
-# UX row sold as bytes is how a cascade acquires rows nobody can defend.
+# THESE SUPERSEDE THE NUMBERS THE UNIT WAS BRIEFED WITH, which came from
+# cnixvim and do not transfer to cvim:
+#
+#   - yazi was briefed at 1.845 GB / 66.9 % of the closure, of which 1.472 GB
+#     was a clang+llvm pair retained by an ffmpeg built `--enable-cuda-llvm`.
+#     cvim's yazi pulls `ffmpeg-headless`, which has no such pair: the yazi-on
+#     closure contains ZERO clang or llvm paths, and yazi costs 359 MB. It is
+#     still the second-largest lever and the row still stands — the reason
+#     given for it does not.
+#   - the language toolchains were briefed as "an eighth" of the closure and
+#     explicitly not the lever. On cvim they are the LARGEST lever by 3x.
+#
+# Neither correction was found by re-reading the brief; both came from building
+# the two closures and subtracting.
+#
+# Not every row is a closure row. The dashboard row is UX and is labelled as
+# such, because a UX row sold as bytes is how a cascade acquires rows nobody
+# can defend.
 { config, lib, ... }:
 let
   inherit (lib) mkDefault mkIf mkMerge;
@@ -91,34 +109,74 @@ in
       (gatesOn (lib.subtractLists [ "lang" ] areas))
 
       {
-        # CLOSURE ROW — 0.344 GB of the 2.757 GB linux baseline (12.5 %).
+        # CLOSURE ROW — 1,137,231,104 B, the largest lever in the profile.
         #
-        # Servers get a text editor, not a toolchain host. This is the area
-        # gate; each language underneath also defaults off on `server`
-        # (`options/lang.nix` reads the profile for its own declared
-        # defaults), so a host that turns this area back on for one language
-        # gets that one language and not the workstation's eight.
+        # Servers get a text editor, not a toolchain host.
         #
-        # It is NOT the lever this profile lives or dies by. Dropping every
-        # LSP and keeping yazi lands at 2.413 GB — 3x the target. The row
-        # below is the lever.
+        # MEASURING THIS ROW HAS A TRAP, and the first attempt fell in it.
+        # Flipping the area gate alone produces a BYTE-IDENTICAL closure —
+        # same store path, not merely the same size. Every language's own
+        # `enable` also defaults false on `server` (`options/lang.nix` reads
+        # the profile), so turning the area back on enables no language and
+        # the measurement reads as "this row is worth nothing". The number
+        # above is the area gate plus the eight languages a workstation
+        # actually has.
+        #
+        # The two levels are deliberate: a server host that re-enables the
+        # area to get one language gets that one language, not the
+        # workstation's eight.
         cvim.lang.enable = mkDefault false;
 
-        # CLOSURE ROW — 1.845 GB of the 2.757 GB linux baseline (66.9 %), and
-        # a BINDING PRECONDITION of this profile rather than a preference.
+        # CLOSURE ROW — 358,933,912 B (884,335,464 -> 1,243,269,376 with it
+        # back on), the second-largest lever.
         #
         # nixvim's yazi module declares `dependencies = [ "yazi" ]`, so
         # enabling the plugin is what puts the yazi binary on the closure.
-        # 1.472 GB of yazi's 1.845 GB is a clang+llvm pair that ffmpeg
-        # retains because nixpkgs builds it `--enable-cuda-llvm` on linux and
-        # `--disable-cuda-llvm` on darwin — that single flag is 92.5 % of the
-        # linux-versus-darwin gap.
         #
         # This sheds the explorer, not the picker: snacks.picker, fff and
         # trouble are untouched, and `<leader>e` / `<leader>E` are simply not
-        # bound. Verified by byte delta on a built closure, never by reading
-        # the option back — see the report for the numbers.
+        # bound.
+        #
+        # The unit was briefed that this row was worth 1.845 GB, 1.472 GB of
+        # it a clang+llvm pair retained by ffmpeg. That is cnixvim's number
+        # and it does not transfer: cvim's yazi pulls `ffmpeg-headless`, and
+        # `nix path-info -r` over the yazi-on closure returns ZERO clang or
+        # llvm paths. Do not restore the larger figure from the brief.
         cvim.picker.yazi.enable = mkDefault false;
+
+        # CLOSURE ROW — 79,687,560 B, measured as a byte delta on a built
+        # x86_64-linux closure (884,335,464 -> 804,647,904).
+        #
+        # `waylandSupport` defaults to `lib.meta.availableOn hostPlatform
+        # pkgs.wayland`: true on linux, false on darwin. It puts wl-clipboard
+        # and its dependency chain in the wrapper's PATH so neovim's built-in
+        # clipboard autodetection can find them.
+        #
+        # cvim never reaches that autodetection. `modules/zt/clipboard.nix`
+        # assigns `vim.g.clipboard` unconditionally — pbcopy on a local mac,
+        # OSC 52 plus a tmux buffer everywhere else — so the wl-clipboard
+        # binaries are present and unreachable on every linux build.
+        #
+        # This is NOT the trim the session already tried and measured as a
+        # no-op. `clipboard.providers = mkForce { }` sets an option, reads
+        # back exactly what was written, and moves zero bytes, because the
+        # injection happens in the nixpkgs wrapper rather than in the module.
+        # `waylandSupport` is the wrapper's own switch, which is why it moves
+        # the closure and the other one cannot.
+        waylandSupport = mkDefault false;
+
+        # CLOSURE ROW — 43,403,720 B, measured the same way.
+        #
+        # The ruby remote-plugin provider. cvim ships no ruby remote plugin on
+        # any profile, so this is dead weight rather than a capability being
+        # given up; nixvim simply defaults `withRuby` to true.
+        #
+        # Taken here and not globally ON PURPOSE. It is equally unused on
+        # `default`, and moving it to a global default would shed the same
+        # bytes there — but that changes the workstation artifact, which
+        # belongs to whoever owns the editor core, not to the profile cascade.
+        # Recorded as a finding rather than taken quietly.
+        withRuby = mkDefault false;
 
         # UX ROW — deliberately NOT a closure row, and not to be sold as one.
         #
