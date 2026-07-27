@@ -189,6 +189,30 @@ in
     ]))
   ];
 
+  # NOT A ROW, AND DELIBERATELY SO — bufferline stays on `server`.
+  #
+  # This unit is chartered to cut the closure, so "does a remote editor need a
+  # tab bar" is exactly the question it asks, and the honest-looking answer is
+  # yes-we-can-drop-it. Two reasons it is wrong here, one measured and one
+  # structural.
+  #
+  # MEASURED: turning the whole `ui` area off on `server` is worth
+  # 16,811,824 B — 2.2 % of the closure, against 1,137,231,104 B for `lang` and
+  # 358,933,912 B for yazi. bufferline alone is a fraction of that. The UI area
+  # is not where the bytes are.
+  #
+  # STRUCTURAL, and this is the one that would not have been noticed:
+  # `termguicolors = true` reaches cvim ONLY as a side effect of nixvim's
+  # bufferline module (`plugins/by-name/bufferline/default.nix:211`, a plain
+  # definition, not even `mkDefault`). No cvim file asks for it. §6 row 3 —
+  # zero baked theme hexes — was signed off on evidence that only means
+  # anything under truecolor. So dropping bufferline would move the ground
+  # under an audited row, and every option-level check would still pass,
+  # because `termguicolors` would go ABSENT rather than wrong.
+  #
+  # If a later pass does gate bufferline, declare `termguicolors` explicitly in
+  # that profile. Do not inherit it from a plugin you are removing.
+
   # NOT A ROW, recorded so nobody goes looking for one: the treesitter grammar
   # floor. `plugins.treesitter.grammarPackages` defaults to nixvim's
   # `allGrammars` — 326 grammars, ~267 MB — and with `cvim.lang.enable = false`
