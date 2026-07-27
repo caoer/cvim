@@ -48,10 +48,30 @@
 #          .status()` answers `none`, and a `.rs` buffer is text plus grammar.
 # partial  Needs two expected servers on one filetype; cvim configures one, so
 #          this state is reachable only if a host adds a second.
-# error    `rust-analyzer` missing from `$PATH` (`toolchain = "devshell"`
+# error    Two different ones, and only the first is quiet.
+#
+#          `rust-analyzer` missing from `$PATH` (`toolchain = "devshell"`
 #          outside a devshell): nothing is drawn, no dialog opens, `status()`
-#          counts it missing, and the reason is written to
-#          `vim.lsp.log.get_filename()`.
+#          answers `missing` rather than `none`, and the reason —
+#          `rust-analyzer is not executable` — goes to
+#          `vim.lsp.log.get_filename()`. Verified live.
+#
+#          `rustc` missing from `$PATH`: a fifteen-line Lua stack trace on
+#          EVERY `.rs` buffer open, and no attach at all. This one is upstream
+#          and unrelated to anything cvim sets. nvim-lspconfig's bundled
+#          `lsp/rust_analyzer.lua` runs `rustc --print sysroot` from
+#          `default_sysroot_src()` inside its `root_dir` resolver, through
+#          `vim.system` with no `executable()` guard and no `pcall`, so the
+#          ENOENT escapes into the `BufReadPost`/`FileType` autocmd chain:
+#
+#            ENOENT: no such file or directory (cmd): 'rustc'
+#
+#          Measured identically on a build that ships `rustfmt` and one that
+#          does not — `pkgs.rustfmt` carries `rustfmt`, `cargo-fmt`,
+#          `git-rustfmt` and `rustfmt-format-diff`, never `rustc` — so no
+#          choice available to this module changes it. Shipping `rustc` to
+#          silence it would cost 961 MB. Rust in cvim is a devshell language;
+#          outside one it is not merely degraded, it is loud.
 {
   config,
   lib,
