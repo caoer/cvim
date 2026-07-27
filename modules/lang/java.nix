@@ -201,29 +201,30 @@ in
 
     plugins.treesitter.grammarPackages = map (resolve "grammars" grammarPackages) lang.grammars;
 
-    # Only written when non-empty, and that is not tidiness.
+    # Written only when the list is non-empty, and with `mkIf` rather than
+    # `optionalAttrs`. Three reasons, all pointing the same way.
     #
-    # nixvim's `toLuaObject` DROPS empty values, so `formatters_by_ft.java =
-    # [ ]` — which is the default here, because jdtls formats through the LSP —
-    # is present in the evaluated config and absent from the generated
-    # `init.lua`. Writing it would be a claim this module cannot keep.
+    # `optionalAttrs false` still DEFINES the option, as `{ }`; `mkIf false`
+    # defines nothing at all. `lintersByFt` is one of nixvim's null-default
+    # options, and it emits `__lint.linters_by_ft = ...` only while it is
+    # non-null — so a `{ }` definition writes an empty table into the generated
+    # Lua where nothing should appear. Caught by reading that file: `nix eval`
+    # reports `{ }` either way, which is exactly why the evaluated config is the
+    # wrong instrument for this particular claim.
     #
-    # There is a second reason, and it is the sharper one. Both of these options
-    # take their default only while *no* module defines them, and
-    # `lintersByFt`'s default is a non-empty table (vale for markdown, jsonlint
-    # for json, and more). A `java = [ ]` definition would silently delete that
-    # whole table for every other filetype in the distro. `[ ]` means this
-    # module contributes no entry — it does not mean it reaches across and
-    # clears someone else's.
+    # nixvim's `toLuaObject` separately DROPS empty values, so
+    # `formatters_by_ft.java = [ ]` would be present in the evaluated config and
+    # absent from the generated Lua. Writing it would be a claim this module
+    # cannot keep.
     #
-    # Omitting the key is only equivalent to "unlinted" because nvim-lint ships
-    # no default for `java`. That is verified per filetype, not assumed from the
-    # mechanism: markdown/vale is the counter-example where the same omission
-    # leaves an upstream default live.
-    plugins.conform-nvim.settings.formatters_by_ft = lib.optionalAttrs (lang.formatters != [ ]) {
+    # Leaving the key out equals "never linted" only because nvim-lint's own
+    # `M.linters_by_ft` is empty upstream — read from the plugin source for
+    # `java`, not inferred from the mechanism. Where nvim-lint does ship a
+    # default for a filetype, omitting the key leaves that default live.
+    plugins.conform-nvim.settings.formatters_by_ft = lib.mkIf (lang.formatters != [ ]) {
       java = lang.formatters;
     };
-    plugins.lint.lintersByFt = lib.optionalAttrs (lang.linters != [ ]) { java = lang.linters; };
+    plugins.lint.lintersByFt = lib.mkIf (lang.linters != [ ]) { java = lang.linters; };
 
     extraPackages = lib.mkIf (ships && prefix) toolPackages;
     extraPackagesAfter = lib.mkIf (ships && !prefix) toolPackages;
