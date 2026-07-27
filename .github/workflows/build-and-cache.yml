@@ -98,9 +98,54 @@ jobs:
           done
           if [ "$status" -ne 0 ]; then
             echo '::error::AFTER lines: replace lazyLoad.settings.after with luaConfig.post — `after` REPLACES the plugin config instead of appending, silently dropping it.'
-            echo '::error::INERT lines: enable plugins.lz-n, or drop the lazyLoad spec — with no provider the spec never registers and the plugin loads EAGERLY at startup instead.'
+            echo '::error::INERT lines: enable plugins.lz-n, or drop the lazyLoad spec — with no provider nothing consumes the spec, so the plugin NEVER LOADS and its setup() never runs. Verified at nixvim lib/plugins/mk-neovim-plugin.nix: setup reaches init.lua only under `mkIf (!cfg.lazyLoad.enable)`.'
             exit 1
           fi
+
+      # Formatting drift, reported and never blocking. Deliberately the ONLY
+      # continue-on-error step in this job.
+      #
+      # WHY NOT BLOCKING: `build` needs: `lint`, so a red here would stop six
+      # pins landing (default+server × 3 platforms) and force the fleet to
+      # rebuild — over whitespace whose derivation output is provably
+      # byte-identical. The red-means-pins-stop rule is justified by a config
+      # that will not START; formatting does not reach that bar.
+      #
+      # WHY NOT A PR GATE: there are none. Integration here is local `git merge`
+      # plus push — measured at zero PR merges across the last 40 commits on
+      # main — so a `pull_request`-triggered check would never fire. A gate
+      # hanging on a trigger the commit graph never produces is enforcement in
+      # name only.
+      #
+      # WHY NOT A FLAKE CHECK: this workflow deliberately avoids
+      # `nix flake check` because it cannot exempt `lab`, and nothing else
+      # invokes it — a `checks.<sys>.formatting` would never execute.
+      #
+      # KNOWN COST: non-blocking red decays into ignored red. The mitigation is
+      # that this stays the only continue-on-error step here, and the drift is
+      # printed as a FILE LIST rather than a bare failure, because a specific
+      # line decays slower than a generic one. Ignored twice is evidence to
+      # revisit this, not an argument to have again.
+      # `--ci` is treefmt's own CI mode (--no-cache --fail-on-change). NOT
+      # `--check`, which this formatter does not accept — it prints help and
+      # exits 1 on a CLEAN tree, so the step would be permanently red on day
+      # one, which is exactly the ignored-red failure this comment claims to
+      # mitigate. Verified on both arms before landing: clean tree exit 0,
+      # injected drift exit 1 naming the file.
+      - name: "nixfmt drift — reported, never blocking"
+        continue-on-error: true
+        run: |
+          if nix fmt -- --ci . >/tmp/fmt.out 2>&1; then
+            echo "nixfmt: clean"
+            exit 0
+          fi
+          echo '::warning::nixfmt would reformat these files — run `nix fmt`:'
+          grep -oE 'path=[^ ]+\.nix' /tmp/fmt.out | sed 's/^path=//' | sort -u |
+            while read -r f; do
+              echo "::warning file=$f::$f is not nixfmt-clean"
+            done
+          cat /tmp/fmt.out
+          exit 1
 
   # The gating job. Its success is what the fleet trusts: both pins point at a
   # closure that is fully present in the cache.
