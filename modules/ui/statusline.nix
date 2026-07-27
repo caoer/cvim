@@ -15,7 +15,7 @@
 # is split. At 80 columns:
 #
 #   mode          shown, abbreviated to 3 characters (`NORMAL` -> `NOR`)
-#   branch        shown, name capped at 12 characters with a trailing ellipsis
+#   branch        shown, name capped at 12 display columns with an ellipsis
 #   filename      shown, relative path; leading directories compress to their
 #                 first letter, then the whole string is capped to the budget
 #   diagnostics   shown, never truncated — it is the signal, and it renders
@@ -27,6 +27,21 @@
 #
 # 48 is the reserve: the columns everything other than the filename needs at
 # its widest. Both filename stages spend `columns - 48`.
+#
+# Every budget here is denominated in DISPLAY COLUMNS and measured in display
+# columns, which is not the same as characters. A CJK filename is one character
+# and two columns per glyph, so counting characters against a column budget
+# overflows by exactly the amount the cap exists to prevent — measured at 59
+# columns against a 32-column budget before this was fixed. `vim.fn.printf`'s
+# `%S` conversion is the primitive: its precision counts display cells, and it
+# never splits a double-width character. `mode` is exempt because lualine's
+# mode names are a fixed ASCII table.
+#
+# lualine's own `shorting_target` stage measures BYTES (`#path` in
+# `components/filename.lua`). For multibyte text bytes exceed columns, so it
+# compresses more than strictly needed — short, never wide. The hard cap below
+# is what makes the composition safe, so leave it in place if that stage is
+# ever retuned.
 #
 # Deliberately absent:
 #   encoding, fileformat — utf-8 and unix are the always-case here. They cost
@@ -164,11 +179,10 @@ in
                   if vim.o.columns >= 120 then
                     return name
                   end
-                  local len = vim.fn.strchars(name)
-                  if len <= 12 then
+                  if vim.fn.strdisplaywidth(name) <= 12 then
                     return name
                   end
-                  return vim.fn.strcharpart(name, 0, 11) .. "…"
+                  return vim.fn.printf("%.11S", name) .. "…"
                 end
               '';
             }
@@ -192,11 +206,19 @@ in
               fmt = ''
                 function(name)
                   local budget = math.max(12, vim.o.columns - 48)
-                  local len = vim.fn.strchars(name)
-                  if len <= budget then
+                  local width = vim.fn.strdisplaywidth(name)
+                  if width <= budget then
                     return name
                   end
-                  return "…" .. vim.fn.strcharpart(name, len - budget + 1)
+                  -- `%S` is the one printf conversion whose precision counts
+                  -- display cells rather than bytes or characters, so it turns
+                  -- a column budget into a character index without assuming
+                  -- one character is one column. Trimming two cells more than
+                  -- the arithmetic asks for is what stops a double-width
+                  -- character straddling the boundary from pushing the line
+                  -- over by one.
+                  local cut = vim.fn.strchars(vim.fn.printf("%." .. (width - budget + 2) .. "S", name))
+                  return "…" .. vim.fn.strcharpart(name, cut)
                 end
               '';
             }
