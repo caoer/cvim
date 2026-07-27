@@ -23,7 +23,6 @@
     ./lab-lsp.nix
     ./lab-lang.nix
     ./lab-ai.nix
-    ./lab-dap.nix
     ./lab-zt.nix
   ];
 }

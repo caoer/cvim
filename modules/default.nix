@@ -17,7 +17,6 @@
     ./lsp
     ./lang
     ./ai
-    ./dap
     ./zt
   ];
 }
