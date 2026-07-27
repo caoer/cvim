@@ -10,6 +10,10 @@
   imports = [
     ./options
 
+    # Not a layer. The resolved PORT rows from the inherited-defaults sweep —
+    # editor-wide options that belong to no single feature. See its header.
+    ./defaults
+
     ./core
     ./ui
     ./picker
