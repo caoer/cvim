@@ -75,8 +75,9 @@
 # measured against the shipped plugin, not inferred: setting it to
 # `{ LspAttach, LspDetach }` leaves exactly those two and drops all ten
 # defaults, including `ModeChanged` and `CursorMoved`. That would freeze every
-# other component while looking correct on LSP. Same shape as
-# `lazyLoad.settings.after`. An autocmd touches no defaults.
+# other component while looking correct on LSP. Same shape as lz.n's
+# after-option, which replaces where the author assumed it appends — and which
+# CI grep-lints for that reason. An autocmd touches no defaults.
 #
 # Editor-surface states:
 #   empty   — no file open: filename reads `[No Name]`, branch and diagnostics
