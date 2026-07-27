@@ -224,10 +224,11 @@ in
           desc = "Start the TypeScript language server on demand";
         };
 
-        # `<leader>` is whatever `mapleader` is when this binds. cvim sets no
-        # mapleader today, so this currently lands on `\zz`; the editor core
-        # owns that global. `:TsStart` is the binding-independent entry point
-        # and is what the incident gate is verified through.
+        # `<leader>` is whatever `mapleader` is when this binds. `modules/core/
+        # leader.nix` sets `globals.mapleader = " "`, so this lands on
+        # `<Space>zz`; the editor core owns that global. `:TsStart` is the
+        # binding-independent entry point and is what the incident gate is
+        # verified through.
         keymaps = [
           {
             mode = "n";
