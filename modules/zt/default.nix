@@ -21,6 +21,7 @@
     ./save-notify.nix
     ./secrets.nix
     ./spell.nix
+    ./suda.nix
     ./treesitter-guard.nix
     ./yank-ref.nix
   ];
