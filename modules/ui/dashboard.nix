@@ -29,8 +29,9 @@
 # `Snacks.dashboard.pick`, which needs a picker from the picker layer. Four of
 # snacks' eight default keys are wrong for cvim, so the list is rewritten rather
 # than inherited: `Config` opened the config directory nixvim removes from
-# runtimepath, `Restore Session` needs a session manager cvim does not ship, and
-# `Lazy` is meaningless here.
+# runtimepath and `Lazy` is meaningless here. `Restore Session` was dropped for
+# needing a session manager cvim did not ship; core/sessions.nix ships one now
+# (U13 daily-drive), so the key is back, gated on that layer.
 #
 # Editor-surface states:
 #   empty   — no recent files and no picker: the banner and the unconditional keys
@@ -45,6 +46,7 @@
 let
   cfg = config.cvim.ui;
   pickerKeys = config.cvim.picker.enable;
+  sessionKey = config.cvim.editor.enable;
 in
 {
   config = lib.mkIf (cfg.enable && cfg.dashboard.enable) {
@@ -85,6 +87,14 @@ in
                 key = "r";
                 desc = "Recent Files";
                 action = ":lua Snacks.dashboard.pick('oldfiles')";
+              }
+            ]
+            ++ lib.optionals sessionKey [
+              {
+                icon = " ";
+                key = "s";
+                desc = "Restore Session";
+                action = ":lua require('persistence').load()";
               }
             ]
             ++ [

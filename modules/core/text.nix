@@ -10,12 +10,13 @@
 # exactly what one costs and U12 should expect no closure saving from trimming
 # them.
 #
-# `s` IS CLAIMED TWICE, DELIBERATELY. mini.surround uses `s` as an operator
-# prefix; flash (motions.nix) binds `s` in normal/visual as a jump. They
-# coexist under nixvim's defaults and no conflict appeared in the lab. It looks
-# like a collision on paper, so it is written down here — do not "fix" it.
-# Accepted consequence, raised with ZT before the choice: plain `s`
-# (substitute-char) is shadowed; `cl` does the same thing.
+# `s` BELONGS TO FLASH, so mini.surround lives on `gs` — the same split
+# khanelivim uses (gsa/gsd/gsr…). The previous "s claimed twice, they coexist"
+# note was wrong in a way the lab could not see: flash creates no default
+# keymaps, so the "coexistence" was mini.surround's s-prefix plus its bare-`s`
+# <Nop> guard, and the designed flash jump never existed. Found on ZT's first
+# daily-drive day (U13). Accepted consequence unchanged: plain `s`
+# (substitute-char) is shadowed by the flash binding; `cl` does the same thing.
 { config, lib, ... }:
 let
   cfg = config.cvim.editor;
@@ -30,8 +31,20 @@ in
         # existing a/i motions rather than rebinding anything.
         ai = { };
 
-        # `saiw"` to wrap, `sd"` to delete, `sr"'` to replace.
-        surround = { };
+        # `gsaiw"` to wrap, `gsd"` to delete, `gsr"'` to replace. The `gs`
+        # prefix (not mini's default `s`) is what frees `s` for flash — see
+        # the header note. `gS` (splitjoin, below) is a distinct key.
+        surround = {
+          mappings = {
+            add = "gsa";
+            delete = "gsd";
+            find = "gsf";
+            find_left = "gsF";
+            highlight = "gsh";
+            replace = "gsr";
+            update_n_lines = "gsn";
+          };
+        };
 
         # Auto-closes brackets and quotes as you type.
         pairs = { };

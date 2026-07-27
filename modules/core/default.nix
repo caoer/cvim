@@ -33,6 +33,7 @@
     ./comments.nix
     ./text.nix
     ./motions.nix
+    ./sessions.nix
     ./large-buffer.nix
   ];
 }

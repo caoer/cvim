@@ -18,8 +18,14 @@ in
   config = lib.mkIf cfg.enable {
     plugins = {
       # `s` + two characters labels every match for a direct jump; also
-      # enhances `f`/`t` and gives treesitter-node selection on `S`. See
-      # text.nix for why sharing `s` with mini.surround is fine.
+      # enhances `f`/`t` and gives treesitter-node selection on `S`.
+      #
+      # flash creates NO default keymaps for jump/treesitter — enabling the
+      # plugin alone leaves `s` to whoever else claims it. The keymaps below
+      # are the whole feature; text.nix moves mini.surround to `gs` (the same
+      # split khanelivim uses) so `s` belongs to flash alone. Found on ZT's
+      # first daily-drive day: `s` resolved to mini.surround's <Nop> prefix
+      # guard and no jump ever fired.
       flash.enable = true;
 
       # ripgrep-backed project-wide search and replace in a preview buffer —
@@ -38,5 +44,42 @@ in
       # behaviour rather than a defect.
       inc-rename.enable = true;
     };
+
+    keymaps = [
+      {
+        mode = [
+          "n"
+          "x"
+          "o"
+        ];
+        key = "s";
+        action.__raw = ''
+          function()
+            require("flash").jump()
+          end
+        '';
+        options = {
+          desc = "Flash";
+          silent = true;
+        };
+      }
+      {
+        mode = [
+          "n"
+          "x"
+          "o"
+        ];
+        key = "S";
+        action.__raw = ''
+          function()
+            require("flash").treesitter()
+          end
+        '';
+        options = {
+          desc = "Flash Treesitter";
+          silent = true;
+        };
+      }
+    ];
   };
 }
