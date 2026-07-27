@@ -7,9 +7,22 @@
     # cache already holds. Adding a nixpkgs input here would invalidate them.
     nixvim.url = "github:nix-community/nixvim";
 
-    # Lean markdown formatter (mdformat + ship-set + baked flags). Its own
-    # nixpkgs is intentional — it only builds a small python env that rides
-    # into cvim's closure, so it never touches nixvim's plugin hashes.
+    # Lean markdown formatter (mdformat + ship-set + baked flags).
+    #
+    # Its separate nixpkgs keeps it away from nixvim's plugin hashes, which is
+    # the reason it exists — but "a small python env" was wrong and is
+    # corrected here rather than left standing. Measured: once a module
+    # actually consumes `cccMdformat`, this input pulls a SECOND python3 and a
+    # SECOND Apple SDK, +1380 MiB of a +1553 MiB markdown module.
+    #
+    # It is absent from the closure today only because nothing consumes the
+    # `_module.args` below yet. The cost lands when the markdown module does.
+    #
+    # A `follows` onto nixvim's nixpkgs is the candidate fix and is NOT barred
+    # by D8 — that rule protects the nixvim input specifically, to preserve
+    # plugin substitutability from cache.nixos.org, and this is a different
+    # input. Undischarged: ccc-mdformat may not build against nixvim's pin.
+    # Tracked as an experiment, not a mandate.
     ccc-mdformat.url = "github:caoer/ccc-mdformat";
   };
 
