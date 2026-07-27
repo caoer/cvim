@@ -59,19 +59,25 @@ jobs:
             accept-flake-config = true
             allow-import-from-derivation = false
 
-      - name: "lz.n lint — lazyLoad.settings.after is forbidden"
-        # Asks the EVALUATED module whether `after` is set beneath any plugin's
-        # `lazyLoad.settings`, rather than pattern-matching the text that produced
-        # it. `plugins.x.lazyLoad.settings.after = v` and
-        # `plugins.x.lazyLoad = { settings = { after = v; }; }` are the same
-        # attrset once merged, so every spelling is caught by construction and no
-        # comment or Lua string can trigger it. Rationale and the nixvim source
-        # that makes `after` destructive: .github/lint/no-lazyload-after.nix
+      - name: "lz.n lint — no destructive `after`, no lazy spec without a provider"
+        # Asks the EVALUATED module two questions, rather than pattern-matching the
+        # text that produced it:
+        #
+        #   AFTER  is `after` set beneath any plugin's `lazyLoad.settings`?
+        #   INERT  does any plugin intend to be lazy-loaded while lz.n is off?
+        #
+        # Why not grep: `plugins.x.lazyLoad.settings.after = v` and
+        # `plugins.x.lazyLoad = { settings = { after = v; }; }` are the same attrset
+        # once merged, so every spelling is caught by construction and no comment or
+        # Lua string can trigger it. Why the second question exists at all, and the
+        # nixvim source behind both: .github/lint/no-lazyload-after.nix
         #
         # Evaluation only — no derivation is built, so this holds with IFD off.
         #
-        # Only stdout is captured. `nix eval` writes warnings to stderr, and
-        # folding them into the result makes any warning read as a violation.
+        # Only stdout is captured. `nix eval` writes warnings to stderr, and folding
+        # them into the result makes any warning read as a violation. An eval
+        # FAILURE exits 1 and re-runs to show the error: a lint that cannot run must
+        # never read as a lint that passed.
         run: |
           set -uo pipefail
           status=0
@@ -83,15 +89,16 @@ jobs:
                   --apply "$(cat .github/lint/no-lazyload-after.nix)" || true
                 exit 1
               }
-            if [ -n "$hits" ]; then
-              printf '%s\n' "$hits" | sed "s|^|  $config: |"
-              status=1
-            else
-              echo "ok: $config sets no lazyLoad.settings.after"
+            if [ -z "$hits" ]; then
+              echo "ok: $config — no destructive after, no lazy spec without a provider"
+              continue
             fi
+            status=1
+            printf '%s\n' "$hits" | sed "s|^|  $config: |"
           done
           if [ "$status" -ne 0 ]; then
-            echo '::error::forbidden lz.n option lazyLoad.settings.after is set above. It REPLACES the plugin config instead of appending, silently dropping configuration. Use luaConfig.post.'
+            echo '::error::AFTER lines: replace lazyLoad.settings.after with luaConfig.post — `after` REPLACES the plugin config instead of appending, silently dropping it.'
+            echo '::error::INERT lines: enable plugins.lz-n, or drop the lazyLoad spec — with no provider the spec never registers and the plugin loads EAGERLY at startup instead.'
             exit 1
           fi
 

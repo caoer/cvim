@@ -68,6 +68,31 @@ let
     isOption node && isVisible node
   ) (builtins.attrNames cfg);
 
-  offenders = builtins.filter (name: cfg.${name}.lazyLoad.settings ? after) lazyLoadable;
+  # Question 1: is `after` set anywhere?
+  destructive = builtins.filter (name: cfg.${name}.lazyLoad.settings ? after) lazyLoadable;
+
+  # Question 2: does anything intend to be lazy-loaded with no provider to do it?
+  #
+  # Asking only question 1 leaves a hole that question 1 cannot see: it proves
+  # `after` is never SET and proves nothing about whether lz.n is even ON. With no
+  # provider, lz.n never registers the spec — and the plugin does not fail to
+  # load, it becomes a START plugin. Everything deliberately deferred then runs
+  # eagerly at startup, which is the opposite of the failure anyone is watching
+  # for, and nothing reports it.
+  #
+  # nixvim itself only WARNS here (modules/lazyload.nix, `when = count > 0 &&
+  # !config.plugins.lz-n.enable`), and a warning does not fail a build. This is
+  # that warning promoted to a hard failure.
+  #
+  # `lazyLoad.enable` is the right signal for intent: it defaults to true as soon
+  # as `settings` holds a non-null attribute, and an author who sets it false has
+  # deliberately chosen eager loading rather than had it forced on them.
+  providerEnabled = cfg.lz-n.enable or false;
+  intendedLazy = builtins.filter (name: cfg.${name}.lazyLoad.enable) lazyLoadable;
+  inert = if providerEnabled then [ ] else intendedLazy;
+
+  lines =
+    map (name: "AFTER plugins.${name}.lazyLoad.settings.after") destructive
+    ++ map (name: "INERT plugins.${name}") inert;
 in
-builtins.concatStringsSep "\n" (map (name: "plugins.${name}.lazyLoad.settings.after") offenders)
+builtins.concatStringsSep "\n" lines
