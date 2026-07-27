@@ -10,6 +10,10 @@
   imports = [
     ./options
 
+    # Not a layer and owns no options: a tree-wide invariant, asserted against
+    # the source of every module above. See platform-guard/default.nix.
+    ./platform-guard
+
     ./core
     ./ui
     ./picker
