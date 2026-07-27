@@ -42,8 +42,8 @@ permissions:
   contents: "read"
 
 jobs:
-  # Source lint. Holds no secrets, and gates the build job below via `needs:`,
-  # so a violation fails the run before any runner spends time building.
+  # Config lint. Holds no secrets, and gates the build job below via `needs:`, so
+  # a violation fails the run in seconds instead of after three full builds.
   lint:
     runs-on: "ubuntu-latest"
     permissions:
@@ -52,29 +52,48 @@ jobs:
       - uses: "actions/checkout@v6"
         with:
           persist-credentials: false
+
+      - uses: "DeterminateSystems/determinate-nix-action@v3"
+        with:
+          extra-conf: |
+            accept-flake-config = true
+            allow-import-from-derivation = false
+
       - name: "lz.n lint — lazyLoad.settings.after is forbidden"
-        # `after` REPLACES the plugin's own config instead of appending to it, so
-        # it silently drops configuration while the build still succeeds. Only
-        # `luaConfig.post` appends. A silent-drop class cannot be caught by any
-        # build result, so it is caught here.
+        # Asks the EVALUATED module whether `after` is set beneath any plugin's
+        # `lazyLoad.settings`, rather than pattern-matching the text that produced
+        # it. `plugins.x.lazyLoad.settings.after = v` and
+        # `plugins.x.lazyLoad = { settings = { after = v; }; }` are the same
+        # attrset once merged, so every spelling is caught by construction and no
+        # comment or Lua string can trigger it. Rationale and the nixvim source
+        # that makes `after` destructive: .github/lint/no-lazyload-after.nix
         #
-        # The pattern is regex-escaped and this file is excluded from the search,
-        # so the lint definition can never match itself. `git grep` exits 1 for
-        # "no match" and >=2 for a real error; the error case fails the step
-        # rather than reading as a pass.
+        # Evaluation only — no derivation is built, so this holds with IFD off.
+        #
+        # Only stdout is captured. `nix eval` writes warnings to stderr, and
+        # folding them into the result makes any warning read as a violation.
         run: |
           set -uo pipefail
-          hits=$(git grep -n -e 'lazyLoad\.settings\.after' \
-            -- . ':!.github/workflows/build-and-cache.yml') && rc=0 || rc=$?
-          if [ "$rc" -eq 0 ]; then
-            printf '%s\n' "$hits"
-            echo '::error::forbidden lz.n option lazyLoad.settings.after found above. It REPLACES the plugin config instead of appending, silently dropping configuration. Use luaConfig.post.'
-            exit 1
-          elif [ "$rc" -ne 1 ]; then
-            echo "::error::git grep failed with status $rc — lint could not run"
+          status=0
+          for config in default server lab; do
+            hits=$(nix eval --raw ".#nixvimConfigurations.x86_64-linux.$config" \
+              --apply "$(cat .github/lint/no-lazyload-after.nix)" 2>/dev/null) || {
+                echo "::error::lint could not evaluate .#nixvimConfigurations.x86_64-linux.$config"
+                nix eval --raw ".#nixvimConfigurations.x86_64-linux.$config" \
+                  --apply "$(cat .github/lint/no-lazyload-after.nix)" || true
+                exit 1
+              }
+            if [ -n "$hits" ]; then
+              printf '%s\n' "$hits" | sed "s|^|  $config: |"
+              status=1
+            else
+              echo "ok: $config sets no lazyLoad.settings.after"
+            fi
+          done
+          if [ "$status" -ne 0 ]; then
+            echo '::error::forbidden lz.n option lazyLoad.settings.after is set above. It REPLACES the plugin config instead of appending, silently dropping configuration. Use luaConfig.post.'
             exit 1
           fi
-          echo 'ok: no lazyLoad.settings.after in tree'
 
   # The gating job. Its success is what the fleet trusts: both pins point at a
   # closure that is fully present in the cache.
