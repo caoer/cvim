@@ -166,7 +166,7 @@ in
     lsp.servers = lib.genAttrs cfg.servers (_: {
       enable = true;
       package = lib.mkIf (!ships) null;
-      packageFallback = devshellFirst;
+      packageFallback = cfg.toolchain != "closure";
     });
 
     plugins.conform-nvim.settings = {

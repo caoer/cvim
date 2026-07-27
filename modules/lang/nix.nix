@@ -86,7 +86,7 @@ let
     ${name} = {
       enable = true;
       package = if shipsBinaries then serverPackages.${name} else null;
-      packageFallback = devshellWins;
+      packageFallback = lang.toolchain != "closure";
     };
   };
 in
