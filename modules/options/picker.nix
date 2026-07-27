@@ -21,9 +21,10 @@
       `false` is a supported shape, not a placeholder: the rest of the layer
       — snacks.picker, fff, trouble — keeps working without it, and
       `<leader>e` / `<leader>E` are simply not bound. Turn it off where the
-      closure matters more than the explorer does; on x86_64-linux the
-      binary and its transitive ffmpeg (built `--enable-cuda-llvm`, so it
-      retains a clang+llvm pair) are worth 1.86 GB, measured.
+      closure matters more than the explorer does: the plugin carries the
+      `yazi` binary and its transitive ffmpeg-headless, which U12 measured
+      at 358,933,912 bytes on x86_64-linux — the second-largest single
+      lever in the server profile, after the language toolchains.
 
       Has no effect unless `cvim.picker.enable` is also true.
     '';
