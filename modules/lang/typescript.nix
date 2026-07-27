@@ -1,0 +1,195 @@
+# `lang/typescript` — TypeScript and JavaScript. On demand, never on filetype.
+#
+# Ships the `typescript`/`tsx`/`javascript`/`jsdoc` grammars, `prettier`, and
+# `typescript-tools` **loaded only when asked for** — `:TsStart` or
+# `<leader>zz`.
+#
+# ## Why this file is shaped so defensively (§6 row 2)
+#
+# `typescript-tools`' `setup()` calls `vim.lsp.enable` unconditionally, and its
+# `root_dir` falls back to `.git`. On 2026-07-14 a stray `.js` opened inside a
+# large repo made tsserver index the entire tree: it filled the system-wide
+# file table (`ENFILE`), then V8 ran out of memory and `SIGBUS`-crashed
+# unrelated processes on ZT's machine. Opening a TypeScript file must therefore
+# start nothing at all.
+#
+# The mechanism is `lazy = true` with **no `ft`**. Verified in lz.n's own
+# source rather than assumed — `lua/lz/n/handler/lazy.lua` is a handler "for
+# plugins that have `lazy` set to true without any other lazy-loading
+# mechanisms configured", and `:h lz.n.PluginSpecHandlers` documents
+# `{lazy?} (boolean)` as "Lazy-load manually, e.g. using `trigger_load`".
+#
+# `ft = [ ]` is NOT equivalent and is the trap: lz.n eager-loads a spec that
+# has no trigger handler at all, which is the incident again by a different
+# route.
+#
+# ## The assertion, and why a warning was not enough
+#
+# All of the above is inert without a lazy-loading provider. nixvim only
+# *warns* when `lazyLoad` is used with no provider enabled, and a warning does
+# not fail a build — so the failure mode is a green build in which
+# typescript-tools is a start plugin, `setup()` runs during startup, and the
+# incident is back with nothing in the source looking wrong. The assertion
+# below converts that silence into a build error.
+#
+# ## `typescript-tools` is deliberately NOT an `lsp.servers` entry
+#
+# It is a plugin that manages its own client, so it never appears in
+# `config.lsp.servers` and therefore never reaches the expected-servers signal.
+# That is correct rather than incidental: a `.ts` buffer with nothing attached
+# is the intended resting state, and the statusline must not report it as a
+# server that failed to attach.
+#
+# ## Editor-surface states
+#
+# - empty   — a `.ts`/`.js` buffer before `:TsStart`: grammar highlighting and
+#             formatting work, no LSP client, no diagnostics, and no indicator.
+#             This is the normal state, not a degraded one.
+# - partial — after `:TsStart` in a tree with no `tsconfig.json`: the client
+#             attaches in single-file mode; cross-file resolution is absent
+#             while completion and hover work.
+# - error   — `:TsStart` with no `node` on `PATH`: the client fails to spawn
+#             and nvim reports it once, in `:messages` and as a notification.
+#             The buffer stays editable and nothing retries in a loop.
+#
+# ## Hostile-defaults review
+#
+# `typescript-tools.nvim` (pmizio), nixpkgs `typescript-tools-nvim`, not
+# vendored. Its settings surface greps dirty on exactly the class that caused
+# the incident — it watches and indexes a project tree, and picks that tree
+# with a `.git` fallback. That is not disabled here because it is what a
+# TypeScript language server does; it is made *opt-in* instead, which is the
+# only fix that actually bounds it. `separate_diagnostic_server` (default true)
+# spawns a second tsserver, doubling the file handles the incident exhausted —
+# left at its default only because the server no longer starts on its own.
+# No telemetry, no auto-update, no network fetch.
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.cvim.lang;
+  lang = cfg.typescript;
+
+  # Name → package. `formatters`/`linters` are `str` in the option surface, so
+  # an unknown name has to throw here or it silently formats nothing.
+  formatterPackages = {
+    prettier = pkgs.prettier;
+  };
+  linterPackages = { };
+
+  lookup =
+    what: table: name:
+    table.${name}
+      or (throw "cvim.lang.typescript.${what}: unknown name '${name}'. Known: ${lib.concatStringsSep ", " (lib.attrNames table)}");
+
+  toolPackages = lib.unique (
+    map (lookup "formatters" formatterPackages) lang.formatters
+    ++ map (lookup "linters" linterPackages) lang.linters
+  );
+
+  shipsBinaries = lang.toolchain != "devshell";
+  devshellWins = lang.toolchain == "prefer-devshell";
+
+  # The filetypes typescript-tools covers. Stated here because conform and
+  # nvim-lint are keyed by filetype and no other source supplies that mapping.
+  # This is NOT a restatement of a server's filetype table — the expected-
+  # servers signal resolves those from `vim.lsp.config`, and typescript-tools
+  # is deliberately not one of its servers.
+  filetypes = [
+    "typescript"
+    "typescriptreact"
+    "javascript"
+    "javascriptreact"
+  ];
+in
+{
+  config = lib.mkIf (cfg.enable && lang.enable) (
+    lib.mkMerge [
+      {
+        plugins.treesitter.grammarPackages = map (
+          g: config.plugins.treesitter.package.builtGrammars.${g}
+        ) lang.grammars;
+
+        plugins.conform-nvim.settings.formatters_by_ft = lib.mkIf (lang.formatters != [ ]) (
+          lib.genAttrs filetypes (_: lang.formatters)
+        );
+
+        plugins.lint.lintersByFt = lib.mkIf (lang.linters != [ ]) (
+          lib.genAttrs filetypes (_: lang.linters)
+        );
+      }
+
+      # Both attributes are defined unconditionally, with the unused one
+      # empty. Choosing the attribute NAME with an `if` instead makes this
+      # module's shape depend on `config`, and nixvim's top level is freeform —
+      # that is an infinite recursion, not a style preference.
+      {
+        extraPackages = lib.optionals (shipsBinaries && !devshellWins) toolPackages;
+        extraPackagesAfter = lib.optionals (shipsBinaries && devshellWins) toolPackages;
+      }
+
+      (lib.mkIf (lib.elem "typescript-tools" lang.servers) {
+        assertions = [
+          {
+            assertion = config.plugins.lz-n.enable;
+            message = ''
+              cvim.lang.typescript enables typescript-tools with no filetype
+              trigger, which only holds while a lazy-loading provider is
+              present. `plugins.lz-n` is not enabled, so lz.n never registers
+              the spec, typescript-tools becomes a start plugin, and its
+              `setup()` runs during startup — calling `vim.lsp.enable` and
+              attaching tsserver to every js/ts buffer on open.
+
+              That is exactly the §6 row 2 incident (ENFILE, then V8 OOM, then
+              SIGBUS in unrelated processes), and it would ship as a green
+              build with nothing in the source looking wrong.
+
+              Enable `plugins.lz-n`, or set `cvim.lang.typescript.servers = [ ]`
+              if you genuinely want no TypeScript server.
+            '';
+          }
+        ];
+
+        plugins.typescript-tools = {
+          enable = true;
+          lazyLoad = {
+            enable = true;
+            # `lazy = true` and deliberately no `ft`. Do not add one.
+            settings.lazy = true;
+          };
+        };
+
+        extraPackages = lib.optional shipsBinaries pkgs.nodejs;
+
+        userCommands.TsStart = {
+          command.__raw = ''
+            function()
+              require("lz.n").trigger_load("typescript-tools.nvim")
+              vim.notify("typescript-tools: started (attaches js/ts buffers)")
+            end
+          '';
+          desc = "Start the TypeScript language server on demand";
+        };
+
+        # `<leader>` is whatever `mapleader` is when this binds. cvim sets no
+        # mapleader today, so this currently lands on `\zz`; the editor core
+        # owns that global. `:TsStart` is the binding-independent entry point
+        # and is what the incident gate is verified through.
+        keymaps = [
+          {
+            mode = "n";
+            key = "<leader>zz";
+            action = "<cmd>TsStart<cr>";
+            options = {
+              desc = "Start TypeScript LSP";
+              silent = true;
+            };
+          }
+        ];
+      })
+    ]
+  );
+}
