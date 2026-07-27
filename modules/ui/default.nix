@@ -8,5 +8,11 @@
 {
   imports = [
     ./theme.nix
+    ./bufferline.nix
+    ./which-key.nix
+    ./notifications.nix
+    ./icons.nix
+    ./markview.nix
+    ./smartcolumn.nix
   ];
 }
