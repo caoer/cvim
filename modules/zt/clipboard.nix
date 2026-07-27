@@ -119,22 +119,38 @@ in
       --     embedded newlines terminate the OSC sequence early.
       --   - the OUTER_TTY chain: the env var is exported by
       --     ~/.config/tmux/start-shell.sh when the socket is `scratch`; the
-      --     `tmux show-environment` fallback covers a shell that started before
-      --     that ran, since start-shell.sh also sets it in the tmux server env.
+      --     `tmux show-environment -g` fallback covers a shell that started
+      --     before that ran, since start-shell.sh also sets it in the tmux
+      --     server env.
       --   - `tmux -L zt list-clients`: the last-resort probe naming ZT's outer
       --     socket directly, for when neither the env var nor the server env
       --     carries it.
       --
-      -- ONE FIX vs the cnixvim text: `base64 -w0` emits a trailing 0x0a, which
-      -- the original interpolated INTO the payload, between the base64 and the
-      -- BEL terminator. Stripped here. The path had never executed anywhere, so
-      -- this was a latent defect rather than a regression.
+      -- TWO FIXES vs the cnixvim text. Both are latent defects in a path that
+      -- had never executed anywhere, not regressions.
+      --
+      --  1. `-g` on the show-environment probe. start-shell.sh writes with
+      --     `tmux set-environment -g`, which is the GLOBAL environment; the
+      --     original read `tmux show-environment` with no flag, which is the
+      --     SESSION environment. Measured on a live server: after
+      --     `set-environment -g`, session-scope `show-environment` answers
+      --     "unknown variable" — and it still does for a session created
+      --     afterwards. The two scopes never meet, so this fallback could
+      --     never have resolved the value start-shell.sh sets.
+      --
+      --  2. The trailing newline. `base64 -w0` emits a trailing 0x0a and the
+      --     original interpolated it INTO the payload, between the base64 and
+      --     the BEL terminator. Stripped here. Measured honestly: tmux
+      --     TOLERATES the stray byte (it recovered the payload either way), so
+      --     this is spec-correctness rather than an observed breakage — a bare
+      --     LF inside an OSC string is not valid, and terminals that are
+      --     stricter than tmux are the ones this path exists to reach.
       function _G.zt_to_outer_tmux()
         local content = vim.fn.getreg('"')
         if content == "" then return end
         local tty = os.getenv("OUTER_TTY")
         if not tty or tty == "" then
-          local env_output = vim.fn.system("tmux show-environment OUTER_TTY 2>/dev/null"):gsub("%s+$", "")
+          local env_output = vim.fn.system("tmux show-environment -g OUTER_TTY 2>/dev/null"):gsub("%s+$", "")
           tty = env_output:match("OUTER_TTY=(.+)")
         end
         if not tty or tty == "" then
