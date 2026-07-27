@@ -10,9 +10,11 @@
   imports = [
     ./options
 
-    # Not a layer and owns no options: a tree-wide invariant, asserted against
-    # the source of every module above. See platform-guard/default.nix.
+    # Not layers: tree-wide invariants, asserted on every build.
+    # platform-guard reads the SOURCE of every module above; keymap-guard reads
+    # the EVALUATED config. Each file says why it is the one and not the other.
     ./platform-guard
+    ./keymap-guard
 
     ./core
     ./ui
