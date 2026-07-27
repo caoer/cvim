@@ -25,10 +25,22 @@ let
 
   # Prefer trouble's list when the picker layer supplied it, fall back to the
   # builtin lists when it did not. `plugins.trouble` belongs to the picker
-  # layer, and the `server` profile is a real configuration that may not carry
-  # it — so this degrades rather than errors, and never hard-requires the
+  # layer, so this degrades rather than errors and never hard-requires the
   # module. Testing the command rather than `require` keeps this correct
   # whether trouble is eager or lazily loaded.
+  #
+  # NOTE: this fallback is currently unreachable by any shipped profile.
+  # `profiles.nix` sets exactly one cascade row — `cvim.lang.enable = false`
+  # for `server` — so trouble is enabled on `default` AND `server` alike. An
+  # earlier version of this comment cited the `server` profile as the
+  # trouble-absent case; that was wrong, and it mattered, because it made a
+  # path look profile-covered when no profile exercises it.
+  #
+  # The degradation is kept anyway: a host disabling the picker layer via
+  # `extendModules` is a real configuration, and it was verified to work
+  # (`\lp` → `vim.lsp.buf.definition`, `\lP` → quickfix). But no profile gate
+  # can catch a regression here, so it needs a deliberate test rather than
+  # trust in CI.
   diagnosticsList = scope: ''
     function()
       if vim.fn.exists(":Trouble") == 2 then
