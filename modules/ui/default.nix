@@ -14,5 +14,6 @@
     ./icons.nix
     ./markview.nix
     ./smartcolumn.nix
+    ./dashboard.nix
   ];
 }

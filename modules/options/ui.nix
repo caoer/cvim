@@ -101,6 +101,19 @@
       '';
     };
 
+    dashboard.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      example = false;
+      description = ''
+        Whether to show a startup screen when neovim opens with no file.
+
+        `false` gives you neovim's own intro screen instead. That is the better
+        answer on a remote box, where a banner costs a screenful of scrollback
+        every time you open the editor to change one line.
+      '';
+    };
+
     smartcolumn = {
       enable = lib.mkOption {
         type = lib.types.bool;
