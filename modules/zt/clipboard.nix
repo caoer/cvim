@@ -30,6 +30,17 @@
 #          for pbpaste would raise; it is the same call the whole platform
 #          depends on, so it is deliberately not defended.
 #          Capture: results/captures/u9a/u9a-clipboard-ssh-tmux.txt.
+#
+# `<leader>yt` (zt_to_outer_tmux) has its own three states, since it targets a
+# tty rather than the clipboard provider:
+#   empty:   an empty unnamed register returns immediately — no process spawned,
+#            no escape sequence written, no notification.
+#   partial: OUTER_TTY unset falls through `tmux show-environment` and then
+#            `tmux -L zt list-clients`; whichever resolves first is used.
+#   error:   all three probes empty ⇒ a WARN, "Could not find outer tmux TTY",
+#            and no write. This is the common case OUTSIDE ZT's nested-tmux
+#            setup, so it must be loud rather than silent.
+#          Capture: results/captures/u9a/u9a-outer-tmux.txt.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;
@@ -91,6 +102,55 @@ in
         copy  = { ["+"] = zt_copy_fn("+"), ["*"] = zt_copy_fn("*") },
         paste = { ["+"] = zt_paste_fn,      ["*"] = zt_paste_fn },
       }
+
+      -- Push the last yank to the OUTER tmux's terminal, bypassing vim.g.clipboard.
+      --
+      -- `zt_yank.to_outer_tmux` in cnixvim, where it was defined but never bound.
+      -- ZT's call: the unbound state was an oversight, so it is ported AND wired.
+      --
+      -- Why it exists: when nvim runs inside a NESTED tmux — the popup server on
+      -- socket `scratch` — an OSC 52 written to nvim's own stdout reaches only
+      -- the inner server, which is not the one holding the real terminal. This
+      -- writes the escape sequence straight to the outer client's tty instead,
+      -- so the yank lands in the actual system clipboard.
+      --
+      -- The three earned details, carried across intact:
+      --   - `base64 -w0`: without -w0, base64 wraps at 76 columns and the
+      --     embedded newlines terminate the OSC sequence early.
+      --   - the OUTER_TTY chain: the env var is exported by
+      --     ~/.config/tmux/start-shell.sh when the socket is `scratch`; the
+      --     `tmux show-environment` fallback covers a shell that started before
+      --     that ran, since start-shell.sh also sets it in the tmux server env.
+      --   - `tmux -L zt list-clients`: the last-resort probe naming ZT's outer
+      --     socket directly, for when neither the env var nor the server env
+      --     carries it.
+      --
+      -- ONE FIX vs the cnixvim text: `base64 -w0` emits a trailing 0x0a, which
+      -- the original interpolated INTO the payload, between the base64 and the
+      -- BEL terminator. Stripped here. The path had never executed anywhere, so
+      -- this was a latent defect rather than a regression.
+      function _G.zt_to_outer_tmux()
+        local content = vim.fn.getreg('"')
+        if content == "" then return end
+        local tty = os.getenv("OUTER_TTY")
+        if not tty or tty == "" then
+          local env_output = vim.fn.system("tmux show-environment OUTER_TTY 2>/dev/null"):gsub("%s+$", "")
+          tty = env_output:match("OUTER_TTY=(.+)")
+        end
+        if not tty or tty == "" then
+          tty = vim.fn.system("tmux -L zt list-clients -F '#{client_tty}' 2>/dev/null | head -1"):gsub("%s+$", "")
+        end
+        if not tty or tty == "" then
+          vim.notify("Could not find outer tmux TTY", vim.log.levels.WARN)
+          return
+        end
+        local encoded = vim.fn.system("echo -n " .. vim.fn.shellescape(content) .. " | base64 -w0"):gsub("%s+$", "")
+        local cmd = string.format("printf '\\033]52;c;%s\\007' > %s", encoded, tty)
+        vim.fn.system(cmd)
+      end
+
+      vim.keymap.set("n", "<leader>yt", _G.zt_to_outer_tmux,
+        { desc = "Copy last yank to outer tmux (OSC 52)" })
     '';
   };
 }
