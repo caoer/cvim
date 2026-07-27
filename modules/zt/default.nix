@@ -9,7 +9,10 @@
   imports = [
     # U9a — the Lua residue. One concern per file.
     ./clipboard.nix
+    ./duckdb.nix
     ./folds.nix
+    ./random-string.nix
+    ./save-notify.nix
     ./treesitter-guard.nix
     ./yank-ref.nix
   ];
