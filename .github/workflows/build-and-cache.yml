@@ -1,0 +1,158 @@
+name: "Build and push to niks3 cache"
+# Builds cvim's `default` and `server` for every fleet platform and pushes both
+# closures to the PUBLIC niks3 cache (cache.0xtau.com — R2 CDN, zero egress)
+# under stable pins, so downstream hosts substitute instead of rebuilding. No
+# pull token is needed: substituter + public key live in this flake's nixConfig.
+# NAR bytes upload direct to R2 via presigned URLs, so the CF-tunnel 100 MB
+# request-body limit never applies.
+#
+# SECURITY INVARIANT — no `pull_request` trigger, anywhere in this file.
+# NIKS3_TOKEN is the fleet niks3 API token and niks3 auth is all-or-nothing:
+# no per-cache scoping. A token that reaches untrusted code is a signing oracle
+# for a cache key every substituting host in the fleet trusts, i.e. signed-
+# substitute RCE across the fleet. So secrets are reachable only from
+# `push: main` and `workflow_dispatch`, both of which require write access to
+# this repo. This is structural, not conditional — there is no `if:` that makes
+# a fork PR safe enough to hold this token. If PR validation is ever wanted, it
+# goes in a SEPARATE workflow file that references no secret and has no push
+# step.
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: "read"
+
+jobs:
+  # Source lint. Holds no secrets, and gates the build job below via `needs:`,
+  # so a violation fails the run before any runner spends time building.
+  lint:
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: "read"
+    steps:
+      - uses: "actions/checkout@v6"
+        with:
+          persist-credentials: false
+      - name: "lz.n lint — lazyLoad.settings.after is forbidden"
+        # `after` REPLACES the plugin's own config instead of appending to it, so
+        # it silently drops configuration while the build still succeeds. Only
+        # `luaConfig.post` appends. A silent-drop class cannot be caught by any
+        # build result, so it is caught here.
+        #
+        # The pattern is regex-escaped and this file is excluded from the search,
+        # so the lint definition can never match itself. `git grep` exits 1 for
+        # "no match" and >=2 for a real error; the error case fails the step
+        # rather than reading as a pass.
+        run: |
+          set -uo pipefail
+          hits=$(git grep -n -e 'lazyLoad\.settings\.after' \
+            -- . ':!.github/workflows/build-and-cache.yml') && rc=0 || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            printf '%s\n' "$hits"
+            echo '::error::forbidden lz.n option lazyLoad.settings.after found above. It REPLACES the plugin config instead of appending, silently dropping configuration. Use luaConfig.post.'
+            exit 1
+          elif [ "$rc" -ne 1 ]; then
+            echo "::error::git grep failed with status $rc — lint could not run"
+            exit 1
+          fi
+          echo 'ok: no lazyLoad.settings.after in tree'
+
+  # The gating job. Its success is what the fleet trusts: both pins point at a
+  # closure that is fully present in the cache.
+  build:
+    needs: "lint"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: "x86_64-linux"
+            runner: "ubuntu-latest"
+          - system: "aarch64-linux"
+            runner: "ubuntu-24.04-arm"
+          - system: "aarch64-darwin"
+            runner: "macos-latest"
+    runs-on: "${{ matrix.runner }}"
+    steps:
+      - uses: "actions/checkout@v6"
+        with:
+          persist-credentials: false
+
+      - uses: "DeterminateSystems/determinate-nix-action@v3"
+        with:
+          # IFD stays off in the runner's own nix.conf, not only in the flake's
+          # nixConfig: a build that starts needing import-from-derivation must
+          # fail here rather than quietly evaluate under a permissive default.
+          # `accept-flake-config` is what lets the flake's substituter list
+          # (cache.0xtau.com) apply.
+          extra-conf: |
+            accept-flake-config = true
+            allow-import-from-derivation = false
+
+      - name: "Install niks3 client (pinned to the rev osfiles locks)"
+        # Same rev as the `niks3` node in /Users/Shared/projects/caoer/osfiles
+        # flake.lock. nixpkgs' niks3 lags and lacks `--pin`. Bump this together
+        # with the osfiles niks3 input, never independently.
+        # Installed BEFORE the first build so the profile GC root keeps the
+        # client alive across the `nix-store --gc` steps below.
+        run: nix profile install github:Mic92/niks3/abbc291d372d2d821327516b5f5224de03113204#niks3
+
+      - name: "Configure niks3 auth"
+        # The only step in this workflow that touches the secret. The token
+        # lands in a 0600 file under RUNNER_TEMP; every push step reads it via
+        # NIKS3_AUTH_TOKEN_FILE, so no push step carries the value in its env.
+        env:
+          NIKS3_TOKEN: "${{ secrets.NIKS3_TOKEN }}"
+        run: |
+          umask 077
+          printf '%s' "$NIKS3_TOKEN" > "$RUNNER_TEMP/niks3-token"
+          echo "NIKS3_AUTH_TOKEN_FILE=$RUNNER_TEMP/niks3-token" >> "$GITHUB_ENV"
+          echo "NIKS3_SERVER_URL=https://niks3.0xtau.com" >> "$GITHUB_ENV"
+
+      - name: "Disk before build"
+        run: df -h / /nix
+
+      - name: "default — build, push under its pin, reclaim the disk"
+        # ORDER IS LOAD-BEARING. Measured x86_64-linux `default` closure is
+        # 13.78 GB and aarch64-linux 13.63 GB (docs/baseline-closures.md)
+        # against ~14 GB decimal of runner free space: ~0.22 GB headroom, so
+        # `default` and `server` cannot coexist in one store. `default` builds
+        # first, on the emptiest store, and `nix-store --gc` reclaims it before
+        # `server` starts. The out-link must be removed first — it is an
+        # indirect GC root, and leaving it makes the collection a no-op.
+        # `server`'s shared paths then re-substitute from the closure this step
+        # just pushed.
+        run: |
+          nix build .#packages.${{ matrix.system }}.default -L --out-link result-default
+          niks3 push --pin "cvim-default-${{ matrix.system }}" ./result-default
+          rm -f result-default
+          nix-store --gc
+          df -h / /nix
+
+      - name: "server — build, push under its pin, reclaim the disk"
+        run: |
+          nix build .#packages.${{ matrix.system }}.server -L --out-link result-server
+          niks3 push --pin "cvim-server-${{ matrix.system }}" ./result-server
+          rm -f result-server
+          nix-store --gc
+          df -h / /nix
+
+      - name: "lab — experimental layer, never blocks the gate"
+        # `lab` is the scratch layer for plugin trials, so it breaks by design.
+        # Two things keep it off the fleet's gate: it is the LAST step, after
+        # both pins have landed, and it is continue-on-error, so a red lab still
+        # leaves this job green.
+        #
+        # It pushes WITHOUT `--pin` deliberately. An unpinned closure ages out of
+        # the niks3 server's 30-day GC on its own, so daily lab churn does not
+        # accumulate pinned garbage that nothing ever reclaims.
+        continue-on-error: true
+        run: |
+          nix build .#packages.${{ matrix.system }}.lab -L --out-link result-lab
+          niks3 push ./result-lab
