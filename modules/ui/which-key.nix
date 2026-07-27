@@ -30,29 +30,37 @@ in
           __unkeyed-1 = "<leader>${toString n}";
           hidden = true;
         }) (lib.range 1 9)
-        # Named groups — without these the popup shows anonymous "+N keymaps"
-        # where khanelivim showed named groups, which reads as missing keys
-        # even when the bindings exist (U13 day-1 drive). Names only label
-        # prefixes that have bindings; which-key drops empty ones.
+        # Named groups WITH icons — without these the popup shows anonymous
+        # "+N keymaps" where khanelivim showed icon+name rows, which reads as
+        # missing keys even when the bindings exist. ZT's explicit ask on the
+        # U13 day-1 drive: "I want icon and name, not just one letter."
+        # Names only label prefixes that have bindings; which-key drops empty
+        # ones.
         ++ map
           (g: {
             __unkeyed-1 = "<leader>${g.k}";
             group = g.name;
+            icon = g.icon;
           })
           [
-            { k = "a"; name = "AI Assistant"; }
-            { k = "b"; name = "Buffers"; }
-            { k = "f"; name = "Find"; }
-            { k = "g"; name = "Git"; }
-            { k = "j"; name = "JSON"; }
-            { k = "l"; name = "LSP"; }
-            { k = "s"; name = "SOPS"; }
-            { k = "S"; name = "Sessions"; }
-            { k = "t"; name = "Tools"; }
-            { k = "u"; name = "UI/UX"; }
-            { k = "x"; name = "Diagnostics"; }
-            { k = "y"; name = "Yank"; }
-            { k = "z"; name = "Language"; }
+            { k = "a"; name = "AI Assistant"; icon = "󰚩"; }
+            { k = "b"; name = "Buffers"; icon = "󰈔"; }
+            { k = "c"; name = "Secrets"; icon = "󰌾"; }
+            { k = "f"; name = "Find"; icon = "󰍉"; }
+            { k = "g"; name = "Git"; icon = "󰊢"; }
+            { k = "j"; name = "Jujutsu"; icon = "󰘬"; }
+            { k = "l"; name = "LSP"; icon = "󰿘"; }
+            { k = "m"; name = "Multicursor"; icon = "󰇀"; }
+            { k = "n"; name = "Notes"; icon = "󱞁"; }
+            { k = "R"; name = "Run"; icon = "󰑮"; }
+            { k = "s"; name = "Search"; icon = "󰺮"; }
+            { k = "S"; name = "Sessions"; icon = "󰆓"; }
+            { k = "t"; name = "Tools"; icon = "󰦬"; }
+            { k = "u"; name = "UI/UX"; icon = "󰙵"; }
+            { k = "v"; name = "Vim training"; icon = "󰛕"; }
+            { k = "x"; name = "Diagnostics"; icon = "󱖫"; }
+            { k = "y"; name = "Yank"; icon = "󰆏"; }
+            { k = "z"; name = "Language"; icon = "󰗊"; }
           ];
     };
   };

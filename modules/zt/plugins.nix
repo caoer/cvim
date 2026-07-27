@@ -89,7 +89,7 @@ in
     keymaps = [
       {
         mode = "n";
-        key = "<leader>sz";
+        key = "<leader>cz";
         action = "<cmd>SopsDecrypt<cr>";
         options = {
           desc = "Decrypt SOPS file";
@@ -98,7 +98,7 @@ in
       }
       {
         mode = "n";
-        key = "<leader>se";
+        key = "<leader>ce";
         action = "<cmd>SopsEncrypt<cr>";
         options = {
           desc = "Encrypt SOPS file";
@@ -150,7 +150,7 @@ in
         return vim.g.loaded_nvim_sops == 1
       end
 
-      -- Stub commands so <leader>sz / <leader>se work in any buffer, not only
+      -- Stub commands so <leader>cz / <leader>ce work in any buffer, not only
       -- one the autocmd below already matched. packadd redefines both with
       -- `command!`, so the stub is replaced rather than shadowed; the
       -- loaded-flag check is what stops a failed packadd recursing.

@@ -14,8 +14,14 @@
     ./duckdb.nix
     ./filetypes.nix
     ./folds.nix
+    ./jj.nix
     ./keymaps.nix
     ./leader-parity.nix
+    ./multicursor.nix
+    ./notes.nix
+    ./run.nix
+    ./search.nix
+    ./training.nix
     ./opts.nix
     ./plugins.nix
     ./random-string.nix
