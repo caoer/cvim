@@ -16,7 +16,7 @@
 # error:   a write that fails for any other reason (read-only file, missing
 #          parent directory) raises from `vim.cmd("w")` and stops the function,
 #          so no success notification follows a failed save.
-#          Capture: results/captures/u9a-save-notify.ansi.
+#          Capture: results/captures/u9a/u9a-save-notify-6x.ansi.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;

@@ -22,7 +22,7 @@
 #          `c` on a linewise selection is vim's own behaviour, not a truncation
 #          introduced here.
 # error:   none reachable — no I/O, no external process, no plugin dependency.
-#          Capture: results/captures/u9a-random-string.txt.
+#          Capture: results/captures/u9a/u9a-random-string.txt.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;

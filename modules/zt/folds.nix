@@ -6,7 +6,7 @@
 #
 # empty:   a buffer with no `{{{`/`}}}` markers folds to nothing — foldmethod
 #          is "marker" and every line sits at foldlevel 0, so the file reads
-#          flat. Verified: results/captures/u9a-folds-toml.ansi.
+#          flat. Verified: results/captures/u9a/u9a-folds-toml-marker.ansi.
 # partial: only balanced marker pairs fold. An unclosed `{{{` folds to end of
 #          file — vim's marker semantics, not a defect introduced here.
 # error:   `zT` in a buffer with no visible window, or after the buffer is

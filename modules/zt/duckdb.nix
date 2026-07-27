@@ -32,7 +32,7 @@
 #          verbatim; there is no half-written output file.
 # error:   `duckdb` absent, an unnamed buffer, or an uncreatable state
 #          directory each abort before the query with a specific message.
-#          Capture: results/captures/u9a-duckdb.txt.
+#          Capture: results/captures/u9a/u9a-duckdb.txt.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;

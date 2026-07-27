@@ -27,7 +27,7 @@
 # error:   `codesign` failing on an individual file is swallowed per-file by
 #          `2>/dev/null`, so one unsignable parser cannot abort the sweep for
 #          the rest.
-#          Capture: results/captures/u9a-codesign.txt.
+#          Capture: results/captures/u9a/u9a-codesign.txt.
 {
   config,
   lib,

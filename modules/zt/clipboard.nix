@@ -29,7 +29,7 @@
 #          happen — the branch is guarded on `has("mac")`. `io.popen` failing
 #          for pbpaste would raise; it is the same call the whole platform
 #          depends on, so it is deliberately not defended.
-#          Capture: results/captures/u9a-clipboard-ssh-tmux.txt.
+#          Capture: results/captures/u9a/u9a-clipboard-ssh-tmux.txt.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;

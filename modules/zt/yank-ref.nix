@@ -5,15 +5,22 @@
 # reference-plus-content. All four write register `+`, so the clipboard layer
 # decides where they actually land (pbcopy locally, OSC52 + tmux elsewhere).
 #
-# empty:   an unnamed buffer yields `@` plus the empty string for the relative
-#          form and `@` plus the cwd for the absolute form; the notify still
-#          fires, so it is visible rather than silent. Nothing errors.
-# partial: outside a git worktree the relative form falls back to `:~:.`
-#          (home-relative, then cwd-relative) instead of failing.
-# error:   `git rev-parse` failing (no git binary, or a dead cwd) is caught by
-#          the `shell_error` check and degrades to the `:~:.` path — verified
-#          by running with PATH stripped of git.
-#          Capture: results/captures/u9a-yank-ref-parity.txt.
+# All four states below were measured, not inferred.
+#
+# empty:   an unnamed buffer emits exactly `@`. The notify still fires, so the
+#          nothing-to-reference case is visible rather than silent, and nothing
+#          errors.
+# partial: outside a git worktree the relative form falls back to `:~:.` and
+#          emits `@fixture.lua` — cwd-relative rather than failing.
+# error:   `git rev-parse` failing is caught by the `shell_error` check and
+#          degrades to `:~:.`. Measured twice, because the two causes degrade
+#          differently: with NO git binary at all (`PATH` pointing at an empty
+#          directory) it still emits the relative `@src/fixture.lua`, since
+#          `:~:.` resolves against a live cwd; with a DEAD cwd it emits the
+#          absolute `@/private/tmp/.../fixture.lua`, since `:~:.` has nothing
+#          to relativize against. Neither raises.
+#          Captures: results/captures/u9a/u9a-yank-ref-parity.txt,
+#                    results/captures/u9a/u9a-surface-states.txt.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;

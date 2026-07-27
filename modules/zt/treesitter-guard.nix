@@ -28,7 +28,7 @@
 #          renders without that node's text, the next redraw is correct.
 # error:   double-loading is idempotent — `ts.__bounds_guarded` makes a second
 #          evaluation a no-op, so the wrapper never stacks on itself.
-#          Capture: results/captures/u9a-ts-bounds-guard.txt.
+#          Capture: results/captures/u9a/u9a-ts-bounds-guard.txt.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;
