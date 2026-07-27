@@ -156,7 +156,27 @@ jobs:
       - name: "Disk before build"
         run: df -h / /nix
 
-      - name: "default — build, push under its pin, reclaim the disk"
+      - name: "default — build, start the editor, push under its pin, reclaim the disk"
+        # THE SMOKE TEST, AND WHY IT SITS BEFORE THE PUSH. `nix build .#packages`
+        # proves the config evaluates and the closure builds. It does NOT prove
+        # neovim starts: `extraConfigLua` bodies, `require` paths and plugin
+        # `setup()` arguments are strings until neovim reads them, so no module
+        # assertion can see a fault inside one. `.#checks.<sys>.<out>` is nixvim's
+        # `build.test`, the only derivation here that actually starts the editor
+        # (`nvim -mn --headless +q`, failing on any stderr). Running it between the
+        # build and the push is what keeps a closure whose init.lua errors at
+        # startup from landing under a pin the fleet substitutes.
+        #
+        # It is nearly free, and that is measured, not assumed. The check's build
+        # closure is a strict SUBSET of the package's plus exactly one derivation
+        # — itself — on every output and system (verified with `nix-store -qR` over
+        # both drvPaths). So after the package build above, this line realises one
+        # trivial `runCommandLocal` whose inputs are all already in the store.
+        #
+        # Order matters twice: after the package build, because that is what makes
+        # it incremental; and before `nix-store --gc` below, because after
+        # collection the closure is gone and the same line becomes a full rebuild.
+        #
         # `nix-store --gc` between the two outputs, and `default` first so the
         # larger closure meets the emptiest store. The out-link must be removed
         # before collecting — it is an indirect GC root, and leaving it makes the
@@ -181,14 +201,20 @@ jobs:
         # Do not budget closure size against a 14 GB CI ceiling — there isn't one.
         run: |
           nix build .#packages.${{ matrix.system }}.default -L --out-link result-default
+          t0=$(date +%s)
+          nix build .#checks.${{ matrix.system }}.default -L --no-link
+          echo "smoke(default) wall-clock: $(( $(date +%s) - t0 ))s"
           niks3 push --pin "cvim-default-${{ matrix.system }}" ./result-default
           rm -f result-default
           nix-store --gc
           df -h / /nix
 
-      - name: "server — build, push under its pin, reclaim the disk"
+      - name: "server — build, start the editor, push under its pin, reclaim the disk"
         run: |
           nix build .#packages.${{ matrix.system }}.server -L --out-link result-server
+          t0=$(date +%s)
+          nix build .#checks.${{ matrix.system }}.server -L --no-link
+          echo "smoke(server) wall-clock: $(( $(date +%s) - t0 ))s"
           niks3 push --pin "cvim-server-${{ matrix.system }}" ./result-server
           rm -f result-server
           nix-store --gc
@@ -203,7 +229,17 @@ jobs:
         # It pushes WITHOUT `--pin` deliberately. An unpinned closure ages out of
         # the niks3 server's 30-day GC on its own, so daily lab churn does not
         # accumulate pinned garbage that nothing ever reclaims.
+        #
+        # lab gets the same smoke test, and `continue-on-error` is what keeps D12
+        # intact: a lab whose editor will not start turns this step red and the
+        # job stays green, because both pins have already landed above. This is
+        # also why the fix is three explicit `nix build .#checks.<out>` lines and
+        # not `nix flake check` — flake check has no way to exempt lab, so it
+        # would let the scratch layer block the fleet's pins.
         continue-on-error: true
         run: |
           nix build .#packages.${{ matrix.system }}.lab -L --out-link result-lab
+          t0=$(date +%s)
+          nix build .#checks.${{ matrix.system }}.lab -L --no-link
+          echo "smoke(lab) wall-clock: $(( $(date +%s) - t0 ))s"
           niks3 push ./result-lab
