@@ -55,5 +55,6 @@
     ./markview.nix
     ./smartcolumn.nix
     ./dashboard.nix
+    ./statusline.nix
   ];
 }
