@@ -1,7 +1,21 @@
-# Window navigation and the manual-format binding.
+# Window navigation and the editor-wide odds and ends.
 #
 # Plugin-specific keymaps live with their plugin in ./plugins.nix, so this
 # file stays the editor-wide set.
+#
+# THE MANUAL-FORMAT BINDING IS NOT HERE, and its absence is the point. This
+# file carried a second `<leader>F` bound to the same `require('conform')`
+# call as `modules/core/format.nix`, in modes `[n x]` against core's `[n v]`.
+# `n <leader>F` was therefore defined twice; `vim.keymap.set` overwrites
+# silently, so whichever module the merge happened to write last won, and
+# nothing reported it. U12's duplicate-(mode, lhs) assertion caught it on its
+# first run.
+#
+# Core's copy is the one that survives: conform is core's plugin, so its
+# keymap belongs with it, and `v` is a superset of `x` so nothing was lost.
+# The copy here was also wrong in the one shape that distinguished them — with
+# `cvim.editor.enable = false` and utilities on, it was the only `<leader>F`
+# left and it called into a conform that was never configured.
 #
 # `<leader>` NOTE — cvim sets no `mapleader` on any branch as of 2026-07-27,
 # so every binding below currently resolves to backslash, not Space. That is
@@ -96,21 +110,6 @@ in
 {
   config = lib.mkIf cfg.enable {
     keymaps = windowNav ++ [
-      {
-        # Manual format. Format-on-save is off by §6 row 5 — a silent on-save
-        # rewrite corrupts files that must stay byte-exact, and the damage
-        # lands in a commit before anyone reads the diff.
-        mode = [
-          "n"
-          "x"
-        ];
-        key = "<leader>F";
-        action.__raw = "function() require('conform').format({ async = true, lsp_format = 'fallback' }) end";
-        options = {
-          desc = "Format buffer/selection";
-          silent = true;
-        };
-      }
       {
         # Ported from cnixvim as-is. NOTE: this shadows the built-in `gv`
         # (reselect last visual selection). That is ZT's existing behaviour
