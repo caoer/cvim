@@ -60,6 +60,14 @@ in
         # every line marked added.
         max_file_length = 40000;
         attach_to_untracked = false;
+
+        # Worth knowing before you read the gutter as stale: after staging a
+        # hunk its sign does NOT disappear. gitsigns moves it to a separate
+        # `gitsigns_signs_staged` namespace under `GitSignsStagedChange`, so
+        # the same glyph stays put in a different colour. Measured on the
+        # shipped build by diffing the ANSI — staged renders 70;124;123 and
+        # unstaged 179;246;192, two distinct RGB values, so the two states
+        # are legible rather than merely different in theory.
       };
     };
 
