@@ -93,6 +93,13 @@ let
   shipsBinaries = lang.toolchain != "devshell";
   devshellWins = lang.toolchain == "prefer-devshell";
 
+  # What typescript-tools needs to actually spawn a server: the runtime and
+  # `tsserver.js` itself.
+  serverTools = [
+    pkgs.nodejs
+    pkgs.typescript
+  ];
+
   # The filetypes typescript-tools covers. Stated here because conform and
   # nvim-lint are keyed by filetype and no other source supplies that mapping.
   # This is NOT a restatement of a server's filetype table — the expected-
@@ -162,13 +169,64 @@ in
           };
         };
 
-        extraPackages = lib.optional shipsBinaries pkgs.nodejs;
+        # typescript-tools runs `tsserver.js` on node; both have to exist or
+        # `:TsStart` loads the plugin and then throws "Cannot find tsserver
+        # executable in local project nor global npm installation". Shipping
+        # only nodejs is not enough, and the failure lands at `:TsStart`, not
+        # at build — it was found by running the command, not by reading this.
+        #
+        # `tsserver_path` is deliberately NOT set. Read against the shipped
+        # `tsserver_provider.lua:140-190`, resolution runs:
+        #   1. `tsserver_path` config              <- would always win
+        #   2. <root>/node_modules/typescript      <- the project's own
+        #   ...
+        #   8. exepath("tsserver") + lib/node_modules/typescript
+        #      (an explicit "resolve tsserver in Nix store" branch)
+        # Setting (1) would pin every project to cvim's TypeScript version.
+        # Putting the package on PATH instead lands at (8), so a project's own
+        # TypeScript still wins at (2) — `packageFallback` semantics arriving
+        # through the plugin's own search order rather than a second mechanism.
+        extraPackages = lib.optionals (shipsBinaries && !devshellWins) serverTools;
+        extraPackagesAfter = lib.optionals (shipsBinaries && devshellWins) serverTools;
 
+        # Loading the plugin is NOT enough to attach the buffer you are looking
+        # at. `setup()` calls `vim.lsp.enable`, which REGISTERS a `FileType`
+        # autocmd rather than replaying it — so buffers already open when you
+        # run `:TsStart` are never visited, the call reports success, and
+        # nothing happens. Verified: without the replay below, `:TsStart` on an
+        # open `.ts` buffer left `vim.lsp.get_clients` empty after 30s.
+        #
+        # cnixvim's version of this command claims "attaches js/ts buffers".
+        # On this pin that claim is false, which is why it is not ported.
         userCommands.TsStart = {
           command.__raw = ''
             function()
               require("lz.n").trigger_load("typescript-tools.nvim")
-              vim.notify("typescript-tools: started (attaches js/ts buffers)")
+
+              -- The replay MUST be scheduled, not immediate. `trigger_load`
+              -- returns before typescript-tools has registered its own
+              -- `FileType` handler — its setup defers — so replaying inline
+              -- fires into a handler that does not exist yet and attaches
+              -- nothing. `vim.schedule` callbacks run FIFO, so queueing here
+              -- lands us after the plugin's own deferred setup.
+              --
+              -- Found by verifying interactively: inline replay attached in a
+              -- headless run and NEVER attached in a real tmux pane, and a
+              -- second manual replay attached every time. The headless pass
+              -- was a timing accident, not a working mechanism.
+              vim.schedule(function()
+                local want = ${
+                  "{ " + lib.concatMapStringsSep ", " (f: ''["${f}"] = true'') filetypes + " }"
+                }
+                local n = 0
+                for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                  if vim.api.nvim_buf_is_loaded(b) and want[vim.bo[b].filetype] then
+                    vim.api.nvim_exec_autocmds("FileType", { buffer = b })
+                    n = n + 1
+                  end
+                end
+                vim.notify(("typescript-tools: started, replayed FileType on %d buffer(s)"):format(n))
+              end)
             end
           '';
           desc = "Start the TypeScript language server on demand";
