@@ -23,14 +23,29 @@
 # has no trigger handler at all, which is the incident again by a different
 # route.
 #
-# ## The assertion, and why a warning was not enough
+# ## The guard for "no lazy provider" lives in `modules/core/lazy.nix`, not here
 #
-# All of the above is inert without a lazy-loading provider. nixvim only
-# *warns* when `lazyLoad` is used with no provider enabled, and a warning does
-# not fail a build — so the failure mode is a green build in which
-# typescript-tools is a start plugin, `setup()` runs during startup, and the
-# incident is back with nothing in the source looking wrong. The assertion
-# below converts that silence into a build error.
+# All of the above is inert without a lazy-loading provider, and nixvim only
+# *warns* about that — a warning does not fail a build. This module used to
+# carry its own assertion for it. It no longer does, for two reasons.
+#
+# The first is that the assertion was WRONG about the mechanism. It claimed
+# that with no provider typescript-tools becomes a start plugin whose `setup()`
+# runs at startup and attaches tsserver to every buffer. It does not:
+# `lib/plugins/mk-neovim-plugin.nix` routes `setup()` into the lz.n spec
+# whenever `lazyLoad.enable` is true and writes it to init.lua only when that
+# is false, so with no provider **the plugin never loads and `setup()` never
+# runs**. The real failure is no TypeScript server at all, silently — the
+# opposite symptom, and a reader debugging from the old text would hunt for
+# something loading too early and find nothing loading at all.
+#
+# The second is that `modules/core/lazy.nix` already asserts this correctly and
+# generally, for every plugin declaring a lazy spec rather than for this one,
+# and it names typescript-tools and §6 row 2 in its message. Keeping a local
+# copy meant both fired together in a single error, so a reader had to
+# adjudicate between two authoritative accounts of one failure before acting —
+# which is worse than either alone. Verified: with the provider forced off,
+# `modules/core/lazy.nix` catches this module's configuration on its own.
 #
 # ## `typescript-tools` is deliberately NOT an `lsp.servers` entry
 #
@@ -139,27 +154,6 @@ in
       }
 
       (lib.mkIf (lib.elem "typescript-tools" lang.servers) {
-        assertions = [
-          {
-            assertion = config.plugins.lz-n.enable;
-            message = ''
-              cvim.lang.typescript enables typescript-tools with no filetype
-              trigger, which only holds while a lazy-loading provider is
-              present. `plugins.lz-n` is not enabled, so lz.n never registers
-              the spec, typescript-tools becomes a start plugin, and its
-              `setup()` runs during startup — calling `vim.lsp.enable` and
-              attaching tsserver to every js/ts buffer on open.
-
-              That is exactly the §6 row 2 incident (ENFILE, then V8 OOM, then
-              SIGBUS in unrelated processes), and it would ship as a green
-              build with nothing in the source looking wrong.
-
-              Enable `plugins.lz-n`, or set `cvim.lang.typescript.servers = [ ]`
-              if you genuinely want no TypeScript server.
-            '';
-          }
-        ];
-
         plugins.typescript-tools = {
           enable = true;
           lazyLoad = {

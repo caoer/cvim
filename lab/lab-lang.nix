@@ -18,15 +18,13 @@
 # inert in the shipped build: treesitter, conform and nvim-lint are simply not
 # enabled, so nothing consumes the entries the language modules contribute.
 #
-# `plugins.lz-n` is the exception worth naming: `modules/lang/typescript.nix`
-# ASSERTS on it, because without a lazy provider typescript-tools becomes a
-# start plugin and §6 row 2 (ENFILE → V8 OOM → SIGBUS) returns. The assertion
-# fails the build rather than letting that ship, so this line is what keeps the
-# lab buildable — not what makes the guard true.
+# `plugins.lz-n` is no longer scaffolded here either: the D10a provider landed
+# and `modules/core/lazy.nix` enables it on every output, so typescript-tools'
+# on-demand rule is now real in the shipped build rather than propped up by
+# this file.
 {
   # U3's, scaffolded here until the editing core lands.
   plugins.treesitter.enable = true;
   plugins.conform-nvim.enable = true;
   plugins.lint.enable = true;
-  plugins.lz-n.enable = true;
 }
