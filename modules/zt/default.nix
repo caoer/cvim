@@ -15,6 +15,7 @@
     ./filetypes.nix
     ./folds.nix
     ./keymaps.nix
+    ./leader-parity.nix
     ./opts.nix
     ./plugins.nix
     ./random-string.nix

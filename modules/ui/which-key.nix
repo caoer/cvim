@@ -25,10 +25,35 @@ in
   config = lib.mkIf (cfg.enable && cfg.whichKey.enable) {
     plugins.which-key = {
       enable = true;
-      settings.spec = map (n: {
-        __unkeyed-1 = "<leader>${toString n}";
-        hidden = true;
-      }) (lib.range 1 9);
+      settings.spec =
+        map (n: {
+          __unkeyed-1 = "<leader>${toString n}";
+          hidden = true;
+        }) (lib.range 1 9)
+        # Named groups — without these the popup shows anonymous "+N keymaps"
+        # where khanelivim showed named groups, which reads as missing keys
+        # even when the bindings exist (U13 day-1 drive). Names only label
+        # prefixes that have bindings; which-key drops empty ones.
+        ++ map
+          (g: {
+            __unkeyed-1 = "<leader>${g.k}";
+            group = g.name;
+          })
+          [
+            { k = "a"; name = "AI Assistant"; }
+            { k = "b"; name = "Buffers"; }
+            { k = "f"; name = "Find"; }
+            { k = "g"; name = "Git"; }
+            { k = "j"; name = "JSON"; }
+            { k = "l"; name = "LSP"; }
+            { k = "s"; name = "SOPS"; }
+            { k = "S"; name = "Sessions"; }
+            { k = "t"; name = "Tools"; }
+            { k = "u"; name = "UI/UX"; }
+            { k = "x"; name = "Diagnostics"; }
+            { k = "y"; name = "Yank"; }
+            { k = "z"; name = "Language"; }
+          ];
     };
   };
 }
