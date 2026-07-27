@@ -47,6 +47,17 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
+    # Routes the unnamed register into `+`, so plain `yy` reaches the provider
+    # below. Without it the provider is configured and unreachable from every
+    # keystroke that does not name `"+` explicitly — a state that answers "yes"
+    # to "is the clipboard set up" and fails on the first `yy`.
+    #
+    # ZT does not set this in cnixvim; it arrives from khanelivim
+    # (`modules/nixvim/options.nix`, `clipboard.register = "unnamedplus"`).
+    # cvim has no khanelivim, so it is declared here, beside the provider it
+    # feeds. `unnamedplus` — not `unnamed` — is the ported value.
+    clipboard.register = "unnamedplus";
+
     extraConfigLua = ''
       local is_local_mac = vim.fn.has("mac") == 1 and vim.env.SSH_CONNECTION == nil
 
