@@ -150,15 +150,28 @@ jobs:
         run: df -h / /nix
 
       - name: "default — build, push under its pin, reclaim the disk"
-        # ORDER IS LOAD-BEARING. Measured x86_64-linux `default` closure is
-        # 13.78 GB and aarch64-linux 13.63 GB (docs/baseline-closures.md)
-        # against ~14 GB decimal of runner free space: ~0.22 GB headroom, so
-        # `default` and `server` cannot coexist in one store. `default` builds
-        # first, on the emptiest store, and `nix-store --gc` reclaims it before
-        # `server` starts. The out-link must be removed first — it is an
-        # indirect GC root, and leaving it makes the collection a no-op.
-        # `server`'s shared paths then re-substitute from the closure this step
-        # just pushed.
+        # `nix-store --gc` between the two outputs, and `default` first so the
+        # larger closure meets the emptiest store. The out-link must be removed
+        # before collecting — it is an indirect GC root, and leaving it makes the
+        # collection a no-op. `server`'s shared paths then re-substitute from the
+        # closure this step just pushed.
+        #
+        # WHAT THIS IS AND IS NOT INSURANCE AGAINST. The plan sized this against
+        # ~14 GB decimal of runner free space, which would leave ~0.22 GB of
+        # headroom for the measured 13.78 GB x86_64-linux `default`
+        # (docs/baseline-closures.md) and make collection the only reason the job
+        # survives. That is not what the runners actually give us. Measured by the
+        # "Disk before build" step above, before any build:
+        #
+        #     x86_64-linux    /dev/root  145G  58G   87G  40% /
+        #     aarch64-linux   /dev/root  145G  37G  108G  26% /
+        #     aarch64-darwin  /dev/disk3s1s1  320Gi  12Gi  94Gi  12% /
+        #
+        # 87–108 GB, so the two outputs fit together with room to spare and this
+        # step is cheap insurance rather than the thing keeping the job alive.
+        # Keep it: it costs seconds, and it is what absorbs both an image that
+        # shrinks and the closure growth still ahead of us as the layers land.
+        # Do not budget closure size against a 14 GB CI ceiling — there isn't one.
         run: |
           nix build .#packages.${{ matrix.system }}.default -L --out-link result-default
           niks3 push --pin "cvim-default-${{ matrix.system }}" ./result-default

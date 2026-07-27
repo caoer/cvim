@@ -64,17 +64,30 @@ The server target is a two-thirds cut on the platform that matters, not a
 quarter. The justification "carries LSP toolchains cvim's server won't" has to
 account for ~1.9 GB on linux, not ~0.27 GB.
 
-### F2 — CI runner disk headroom is thinner than the earlier arithmetic.
+### F2 — the closure number is right; the runner-disk premise it was compared against is wrong.
 
-Measured x86_64-linux `default` is **13.78 GB (12.83 GiB)**, not ~13 GB. The
-margin depends on a unit that was never fixed:
+Measured x86_64-linux `default` is **13.78 GB (12.83 GiB)**, not ~13 GB. That was
+originally compared against an assumed ~14 GB of runner free space, giving ~0.22 GB
+of headroom and making `nix-store --gc` between outputs the only reason CI could
+pass.
 
-- if runner free space is 14 GB decimal → **0.22 GB headroom** (effectively none);
-- if it is 14 GiB (15.03 GB) → 1.25 GB headroom.
+**The runner side has since been measured, and it is 6–8x larger than assumed.**
+From the "Disk before build" step of run 30254354601, before any build:
 
-This file does not measure the runner; it replaces the closure side of that
-comparison. `nix-store --gc` between outputs in
-`.github/workflows/build-and-cache.yml` is therefore required, not contingent.
+| Runner | Filesystem | Size | Used | Avail |
+|---|---|---|---|---|
+| x86_64-linux (`ubuntu-latest`) | `/dev/root` | 145G | 58G | **87G** |
+| aarch64-linux (`ubuntu-24.04-arm`) | `/dev/root` | 145G | 37G | **108G** |
+| aarch64-darwin (`macos-latest`) | `/dev/disk3s1s1` | 320Gi | 12Gi | **94Gi** |
+
+So `default` and `server` fit in one store together with tens of GB spare. The
+`nix-store --gc` steps stay in the workflow — they cost seconds and they absorb
+both a future image shrink and the closure growth still ahead as layers land — but
+they are insurance, not load-bearing.
+
+**Do not set closure-size targets against a 14 GB CI ceiling.** There is no such
+ceiling. A size target has to be justified by the small-host delivery target
+instead, which is the platform F1 is about.
 
 ### F3 — `default` ≈ remembered `~13GB`; the number holds.
 
