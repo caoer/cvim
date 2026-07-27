@@ -99,12 +99,11 @@ let
 
   grammarPackage =
     name:
-    config.plugins.treesitter.package.builtGrammars.${name}
-      or (throw ''
-        cvim.lang.markdown.grammars: "${name}" is not a grammar in
-        `plugins.treesitter.package.builtGrammars`. Check the spelling against
-        nvim-treesitter's parser names.
-      '');
+    config.plugins.treesitter.package.builtGrammars.${name} or (throw ''
+      cvim.lang.markdown.grammars: "${name}" is not a grammar in
+      `plugins.treesitter.package.builtGrammars`. Check the spelling against
+      nvim-treesitter's parser names.
+    '');
 
   ships = cfg.toolchain != "devshell";
   devshellFirst = cfg.toolchain == "prefer-devshell";

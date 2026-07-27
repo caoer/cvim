@@ -209,9 +209,7 @@ in
               -- second manual replay attached every time. The headless pass
               -- was a timing accident, not a working mechanism.
               vim.schedule(function()
-                local want = ${
-                  "{ " + lib.concatMapStringsSep ", " (f: ''["${f}"] = true'') filetypes + " }"
-                }
+                local want = ${"{ " + lib.concatMapStringsSep ", " (f: ''["${f}"] = true'') filetypes + " }"}
                 local n = 0
                 for _, b in ipairs(vim.api.nvim_list_bufs()) do
                   if vim.api.nvim_buf_is_loaded(b) and want[vim.bo[b].filetype] then
