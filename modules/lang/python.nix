@@ -33,12 +33,16 @@
 #
 # ## Editor-surface states
 #
-# - **empty** — a `.py` buffer outside any project: both servers still attach
-#   (root markers fall back to the buffer's directory), diagnostics are
-#   whatever ruff finds in the single file, no error is shown.
-# - **partial** — `basedpyright` attached, `ruff` not (or the reverse): the
-#   buffer is usable and the missing half is simply absent. `cvim.lsp.status()`
-#   reports `partial`; this module does not second-guess that signal.
+# - **empty** — a `.py` buffer in a directory with no git root and no project
+#   file: measured, **both** servers still attach and `cvim.lsp.status()`
+#   reports `ok`. Diagnostics are whatever ruff finds in the single file.
+# - **partial** — reached in normal use as a TRANSIENT: ruff attaches in well
+#   under a second and basedpyright takes noticeably longer, so a freshly opened
+#   buffer legitimately reports `partial` for a moment. It settles to `ok`. The
+#   U7 contract states this async window; this module does not smooth it over,
+#   and a probe that stops waiting at the first client will report it as a
+#   permanent `partial` (measured — that false negative is the instrument's,
+#   not the config's).
 # - **error** — `toolchain = "devshell"` outside a devshell: no binary exists,
 #   nothing attaches, and a format attempt reports conform's "no formatter
 #   found" message. Loud, not silent.

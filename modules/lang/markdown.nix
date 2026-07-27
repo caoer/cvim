@@ -45,15 +45,18 @@
 #
 # ## Editor-surface states
 #
-# - **empty** — a `.md` buffer outside any git repo: `marksman` attaches with
-#   the buffer's directory as root and indexes that directory alone. No
-#   diagnostics, no error.
+# - **empty** — a `.md` buffer in a directory with no git root: measured,
+#   `marksman` still attaches (`cvim.lsp.status()` reports `ok`) and indexes
+#   that directory alone. No diagnostics, no error.
 # - **partial** — `marksman` not attached (devshell toolchain, or a filetype
 #   marksman does not claim): formatting still works, because conform runs
 #   `ccc-mdformat` directly and never asks the LSP.
 # - **error** — `ccc-mdformat` not on `$PATH` (only reachable with
 #   `toolchain = "devshell"`): `<leader>F` reports conform's "no formatter
 #   found" message. The buffer is untouched; nothing is written silently.
+#   The *quiet* error is the timeout above, not this one: over `timeout_ms`,
+#   conform logs to `$XDG_STATE_HOME/nvim/conform.log`, returns true, and
+#   changes nothing.
 {
   config,
   lib,
@@ -111,6 +114,39 @@ let
   formatterNames = checked "formatters" formatterPackages cfg.formatters;
   linterNames = checked "linters" linterPackages cfg.linters;
 
+  # conform's default `timeout_ms` is 1000, and ccc-mdformat does not fit in it.
+  # Measured inside a running editor, not from a shell: 1734 ms cold, 1109 ms
+  # warm, against 13 ms for ruff_format, 11 ms for shfmt and ~80 ms for
+  # prettier. It is a Python program with a plugin set to import, and it is the
+  # only formatter cvim ships that is anywhere near the limit.
+  #
+  # Over the limit, conform logs `Formatter 'ccc_mdformat' timeout` to
+  # `$XDG_STATE_HOME/nvim/conform.log`, `format()` still returns true, and the
+  # buffer is untouched. So markdown silently does not format, and the return
+  # value says it did. That is why this number is here and why it was found
+  # only by formatting in a real editor — a headless probe that passes its own
+  # generous `timeout_ms` proves the formatter works and hides that the shipped
+  # path does not reach it.
+  #
+  # 5000 is ~3x the measured worst case. Formatting is a deliberate act, never
+  # on-save, so a ceiling this high costs nothing when the tool is healthy.
+  # `timeout_ms` is a per-filetype option (conform's `allowed_default_opts`),
+  # which is the lever inside this module's ownership — `default_format_opts` is
+  # global and belongs to the editor layer.
+  timeoutMs = 5000;
+
+  # conform's per-filetype table takes positional formatter names alongside
+  # named options; nixvim spells the positional half `__unkeyed-N`.
+  ftEntry =
+    names:
+    if names == [ ] then
+      names
+    else
+      lib.listToAttrs (lib.imap1 (i: n: lib.nameValuePair "__unkeyed-${toString i}" n) names)
+      // {
+        timeout_ms = timeoutMs;
+      };
+
   toolPackages =
     map (pick "formatters" formatterPackages) cfg.formatters
     ++ map (pick "linters" linterPackages) cfg.linters;
@@ -134,7 +170,7 @@ in
     });
 
     plugins.conform-nvim.settings = {
-      formatters_by_ft = lib.genAttrs filetypes (_: formatterNames);
+      formatters_by_ft = lib.genAttrs filetypes (_: ftEntry formatterNames);
 
       # Only defined when the name is actually in use, so a build that drops
       # `ccc_mdformat` from `formatters` does not carry a dangling definition.

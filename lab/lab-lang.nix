@@ -11,21 +11,17 @@
 # lab supplies the missing plumbing so behaviour can be READ OUT of a running
 # editor:
 #
-# - `plugins.lspconfig` — U7's. Load-bearing, not cosmetic: without it
-#   `vim.lsp.config[name]` is `nil` for every server, no `cmd` exists, and
-#   nothing attaches. An unattached server then looks exactly like a
-#   misconfigured one.
 # - `plugins.conform-nvim` / `plugins.lint` — U3's. Without them
 #   `formatters_by_ft` and `linters_by_ft` are attrsets nothing reads.
 # - `plugins.treesitter` — U3's. Without it `grammarPackages` builds nothing.
 #
-# Every one of these is a scaffold for verification. None of it belongs in
-# `modules/lang/*`, and a claim verified here is a claim verified under a
-# lab-local plumbing layer — say so when reporting it.
+# `plugins.lspconfig` was here too until U7 landed. It is gone now: the `lsp`
+# layer enables it, so **attach is verified in the shipped `.#default` build**
+# rather than against scaffolding. Formatting still needs this file, so a
+# formatting claim is a `.#lab` claim and an attach claim is not — that
+# distinction is the point of keeping the two apart.
 {
   plugins = {
-    lspconfig.enable = true;
-
     treesitter.enable = true;
 
     conform-nvim.enable = true;
