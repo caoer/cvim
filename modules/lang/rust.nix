@@ -1,0 +1,185 @@
+# `cvim.lang.rust` — rust-analyzer, the `rust` grammar, rustfmt.
+#
+# Off on every profile, `default` included (D4). A host asks for it back
+# through `extendModules`; until one does, this file contributes nothing to any
+# closure. Both gates have to be on: `cvim.lang.enable` and
+# `cvim.lang.rust.enable`.
+#
+# ## What cvim ships here, and what it deliberately does not
+#
+# The editor side only: the server, the formatter, the grammar. `cargo` and
+# `rustc` are not shipped and are not meant to be. rust-analyzer shells out to
+# both — `cargo metadata --no-deps` to find the workspace root, `rustc --print
+# sysroot` to locate the standard library sources — so in a bare directory
+# outside a devshell you get a server that starts and answers almost nothing.
+# That is `toolchain = "prefer-devshell"` working: the project pins its own Rust
+# version and cvim never bakes one into the editor.
+#
+# ## Hostile defaults — what happens the moment a `.rs` buffer opens
+#
+# Provenance: `rust-analyzer` from nixpkgs on nixvim's pin (upstream rust-lang
+# release, actively maintained); the behaviour below comes from
+# nvim-lspconfig's bundled `lsp/rust_analyzer.lua`, not from cvim. No vendored
+# plugin, so no `rev`/`hash` of our own to pin.
+#
+# On open, before a key is pressed:
+#
+#   - spawns `cargo metadata --no-deps` in the crate directory
+#   - spawns `rustc --print sysroot` when the file sits under a registry, a git
+#     checkout or a rustup toolchain
+#   - indexes the entire cargo workspace *and* every dependency's sources
+#   - `checkOnSave` is rust-analyzer's own default and stays on, so every write
+#     runs `cargo check` and writes into the project's `target/`
+#   - upstream enables the full code-lens set — run, debug, implementations,
+#     references, updateTest — one extra request per visible symbol
+#
+# None of that is disabled here. It is what someone who turns Rust on is asking
+# for, and it is exactly why the language is off by default. Every write lands
+# in the project's own `target/`: never in the store, never in a shared cache.
+#
+# This file adds no plugin. That is a decision, not an omission: the whole
+# language is one server plus two binaries, so there is nothing to defer, no
+# `lazyLoad` spec to be inert while `plugins.lz-n` is off, and no `setup()` that
+# could write a global the layer never declared.
+#
+# ## Editor-surface states
+#
+# empty    Off, or `servers = [ ]`: nothing attaches, `require("cvim.lsp")
+#          .status()` answers `none`, and a `.rs` buffer is text plus grammar.
+# partial  Needs two expected servers on one filetype; cvim configures one, so
+#          this state is reachable only if a host adds a second.
+# error    `rust-analyzer` missing from `$PATH` (`toolchain = "devshell"`
+#          outside a devshell): nothing is drawn, no dialog opens, `status()`
+#          counts it missing, and the reason is written to
+#          `vim.lsp.log.get_filename()`.
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.cvim.lang;
+  lang = cfg.rust;
+  enable = cfg.enable && lang.enable;
+
+  # ── The name → package maps ────────────────────────────────────────────
+  #
+  # `servers` is an enum in `../options/lang.nix`, so a wrong server name is
+  # already a build error. `grammars`, `formatters` and `linters` are `str`,
+  # and closing *that* hole is this file's job: every name below resolves to a
+  # concrete package or throws. Without these maps `formatters = [ "rustfmtt" ]`
+  # would evaluate clean and format nothing.
+
+  # The valid grammar names are exactly what the configured nvim-treesitter can
+  # build — a real map, and one that cannot go stale against the pin.
+  grammarPackages = config.plugins.treesitter.package.builtGrammars;
+
+  formatterPackages = {
+    rustfmt = pkgs.rustfmt;
+  };
+
+  linterPackages = {
+    clippy = pkgs.clippy;
+  };
+
+  resolve =
+    option: table: name:
+    table.${name} or (throw ''
+      cvim.lang.rust.${option}: "${name}" is not a name modules/lang/rust.nix knows.
+      Known ${option}: ${lib.concatStringsSep ", " (lib.attrNames table)}.
+      A name this module cannot map to a package would configure a tool that is
+      never installed, so it is refused here rather than at first use.
+    '');
+
+  # `resolve` fires when its result is *forced*, and that is not the same thing
+  # as "always". `formatters` and `linters` reach `extraPackagesAfter`, which
+  # the wrapper always forces, so a bad name there throws. `grammars` reach
+  # `plugins.treesitter.grammarPackages`, which nothing forces while the editor
+  # layer has treesitter off — so `grammars = [ "jaba" ]` evaluated perfectly
+  # clean and built a derivation. Measured, not reasoned about.
+  #
+  # Assertions are forced by `build.package` on every build, so they do not
+  # depend on anyone consuming the value. `resolve` stays as the value-path
+  # guard; this is the one that always runs.
+  nameAssertions =
+    option: table: known: names:
+    map (name: {
+      assertion = table ? ${name};
+      message = ''
+        cvim.lang.rust.${option}: "${name}" is not a name modules/lang/rust.nix knows.
+        ${known}
+      '';
+    }) names;
+
+  # `toolchain` decides who supplies the binaries — the server's and the tools',
+  # which move together on purpose.
+  ships = lang.toolchain != "devshell";
+  prefix = lang.toolchain == "closure";
+
+  toolPackages = lib.unique (
+    map (resolve "formatters" formatterPackages) lang.formatters
+    ++ map (resolve "linters" linterPackages) lang.linters
+  );
+
+  # nixpkgs would throw about `rust-analyzer` on a system it does not build for;
+  # this throws about the option that asked for it, and names the way out.
+  packageAvailable =
+    name:
+    let
+      p = config.lsp.servers.${name}.package;
+    in
+    p == null || (p.meta.available or true);
+in
+{
+  config = lib.mkIf enable {
+    assertions =
+      map (name: {
+        assertion = packageAvailable name;
+        message = ''
+          cvim.lang.rust.servers: "${name}" has no package on ${pkgs.stdenv.hostPlatform.system}.
+          Set cvim.lang.rust.toolchain = "devshell" to configure it without shipping a binary.
+        '';
+      }) lang.servers
+      ++
+        nameAssertions "grammars" grammarPackages
+          "Valid grammars are the parsers the configured nvim-treesitter can build."
+          lang.grammars
+      ++ nameAssertions "formatters" formatterPackages "Known formatters: rustfmt." lang.formatters
+      ++ nameAssertions "linters" linterPackages "Known linters: clippy." lang.linters;
+
+    lsp.servers = lib.genAttrs lang.servers (_: {
+      enable = true;
+      # `null` means cvim ships nothing and the server runs only from $PATH.
+      package = lib.mkIf (!ships) null;
+      # Suffixed onto $PATH, so a devshell's rust-analyzer — the one matching
+      # the project's toolchain — wins over cvim's.
+      packageFallback = !prefix;
+    });
+
+    plugins.treesitter.grammarPackages = map (resolve "grammars" grammarPackages) lang.grammars;
+
+    # Only written when non-empty, and that is not tidiness.
+    #
+    # nixvim's `toLuaObject` DROPS empty values, so `formatters_by_ft.rust =
+    # [ ]` is present in the evaluated config and absent from the generated
+    # `init.lua`. Writing it would be a claim this module cannot keep: `[ ]`
+    # would read as "cvim disabled formatting for Rust" while the far side of
+    # the translation never heard of it.
+    #
+    # There is a second reason, and it is the sharper one. Both of these options
+    # take their default only while *no* module defines them, and
+    # `lintersByFt`'s default is a non-empty table (vale for markdown, jsonlint
+    # for json, and more). A `rust = [ ]` definition would silently delete that
+    # whole table for every other filetype in the distro. `[ ]` means this
+    # module contributes no entry — it does not mean it reaches across and
+    # clears someone else's.
+    plugins.conform-nvim.settings.formatters_by_ft = lib.optionalAttrs (lang.formatters != [ ]) {
+      rust = lang.formatters;
+    };
+    plugins.lint.lintersByFt = lib.optionalAttrs (lang.linters != [ ]) { rust = lang.linters; };
+
+    extraPackages = lib.mkIf (ships && prefix) toolPackages;
+    extraPackagesAfter = lib.mkIf (ships && !prefix) toolPackages;
+  };
+}
