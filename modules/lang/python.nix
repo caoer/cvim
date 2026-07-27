@@ -164,7 +164,7 @@ in
         # package stands, so this module never restates a package name nixvim
         # already knows.
         package = lib.mkIf (!ships) null;
-        packageFallback = devshellFirst;
+        packageFallback = cfg.toolchain != "closure";
       } (serverConfig.${name} or { })
     );
 

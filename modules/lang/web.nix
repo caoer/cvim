@@ -126,7 +126,7 @@ in
       lib.recursiveUpdate {
         enable = true;
         package = lib.mkIf (!ships) null;
-        packageFallback = devshellFirst;
+        packageFallback = cfg.toolchain != "closure";
       } (serverConfig.${name} or { })
     );
 

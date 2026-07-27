@@ -104,7 +104,7 @@ in
         lsp.servers.gopls = {
           enable = true;
           package = if shipsBinaries then pkgs.gopls else null;
-          packageFallback = devshellWins;
+          packageFallback = lang.toolchain != "closure";
           # Freeform from here down — verified in a running editor, not here.
           config.settings.gopls.vulncheck = "Off";
         };
