@@ -23,8 +23,20 @@ on:
   workflow_dispatch:
 
 concurrency:
+  # Serialize per ref, but NEVER kill a run that is already building. This job's
+  # whole purpose is a side effect — pins landing in the cache — so an in-flight
+  # run is worth finishing even when a newer commit exists. `cancel-in-progress:
+  # true` cost run 30253717211 its aarch64-darwin leg: an unrelated merge to main
+  # killed it mid-`nix-store --gc`, and a cancelled run reports `cancelled`, not
+  # failure. Nobody watching for red sees anything wrong while no pins land, so
+  # during a burst of layer merges the fleet would trust a gating job that
+  # quietly stopped running.
+  #
+  # With `false`, GitHub still cancels superseded *pending* runs, which is the
+  # behaviour worth having: no started run is ever discarded, and the newest
+  # commit always gets one.
   group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: "read"
