@@ -10,6 +10,7 @@
     # U9a — the Lua residue. One concern per file.
     ./clipboard.nix
     ./folds.nix
+    ./treesitter-guard.nix
     ./yank-ref.nix
   ];
 }
