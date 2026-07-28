@@ -48,6 +48,7 @@
 {
   imports = [
     ./theme.nix
+    ./theme-picker.nix
     ./bufferline.nix
     ./which-key.nix
     ./notifications.nix

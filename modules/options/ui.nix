@@ -19,8 +19,11 @@
       description = ''
         Whether to set a colorscheme.
 
-        `true` gives you tokyonight, following the terminal's appearance over
-        OSC 11 — night when the terminal is dark, day when it is light.
+        `true` starts you on tokyonight, following the terminal's appearance over
+        OSC 11 — night when the terminal is dark, day when it is light. It also
+        installs catppuccin, kanagawa and rose-pine beside it, which follow the
+        same signal; `<leader>uC` switches between them and keeps the choice
+        across restarts, `<leader>uR` drops back to tokyonight.
 
         `false` leaves neovim on its built-in colorscheme. That is the right
         answer when you are bisecting a highlight bug and need to know whether
