@@ -70,6 +70,42 @@ in
           # rather than inherited silently.
           style = "night";
           light_style = "day";
+
+          # nvim paints its own background. Transparent would hand the terminal
+          # the background while every other colour here is still computed
+          # against tokyonight's — and `modules/ui/bufferline.nix` and the
+          # statusline read those live highlight groups, so the two halves would
+          # disagree. Same class of failure as the light-mode tab bar incident.
+          transparent = false;
+
+          # `:terminal` buffers get the theme's 16 ANSI colours. cvim runs real
+          # programs in them — lazygit through snacks, the claudecode terminal,
+          # overseer task output — and without this those panes render in the
+          # host terminal's palette while the editor renders in tokyonight's.
+          terminal_colors = true;
+
+          # THE DEFAULT HERE IS COMPUTED FROM A PLUGIN CVIM DOES NOT HAVE.
+          # Upstream's default is `all = package.loaded.lazy == nil` and
+          # `auto = true` (config.lua:41-48): `auto` asks lazy.nvim which plugins
+          # are installed, and `all` is the fallback for when there is no lazy to
+          # ask. cvim has no lazy.nvim, so `all` has been true all along by
+          # accident of absence, and `auto` has been dead code. Both are stated
+          # here so the setting is a decision: style all 72 plugin groups
+          # (groups/*.lua) and let the cache absorb the cost, rather than
+          # enumerate cvim's plugin set in a second place that rots on every
+          # plugin added.
+          plugins = {
+            all = true;
+            auto = false;
+          };
+
+          # Compiled highlights land in `stdpath("cache")/tokyonight-<style>.json`.
+          # The cache key is the style, but the stored entry carries the colours,
+          # the group list, the plugin version and the opts it was built from, and
+          # is discarded unless all of them still match (groups/init.lua:139-149).
+          # So a settings change in this file takes effect on the next start; there
+          # is no stale-theme trap to clear by hand after a rebuild.
+          cache = true;
         };
       };
 
