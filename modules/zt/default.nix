@@ -25,6 +25,7 @@
     ./opts.nix
     ./plugins.nix
     ./random-string.nix
+    ./run-code-block.nix
     ./save-notify.nix
     ./secrets.nix
     ./spell.nix
