@@ -1,4 +1,4 @@
-# Window navigation and the manual-format binding.
+# Window navigation, buffer switching, and the manual-format binding.
 #
 # Plugin-specific keymaps live with their plugin in ./plugins.nix, so this
 # file stays the editor-wide set.
@@ -69,6 +69,46 @@ let
     }
   ];
 
+  # ZT's buffer switching, carried over from the previous runtime: `<Tab>` and
+  # `<S-Tab>` walk the tab line. Bound here rather than in ./leader-parity.nix
+  # because `<Tab>` is not on the leader surface, and not in
+  # ../ui/bufferline.nix because it is taste rather than part of what makes the
+  # tab line work. `<leader>b]`/`<leader>b[` keep the same two commands.
+  #
+  # `<Tab>` IS `<C-i>` on the wire — both are 0x09 — so this normally costs the
+  # jumplist's forward jump. It does not here, and the reason is the terminal
+  # stack, not vim: tmux runs `extended-keys on` with `extended-keys-format
+  # csi-u`, and Neovim 0.12 keeps the two as separate entries in the map table.
+  # Measured on this build rather than assumed: the CSI-u encoding of Ctrl+I
+  # (`ESC [105;5u`) fires the `<C-i>` map, while a raw 0x09 fires this one.
+  #
+  # The dependency is therefore real and external. Drop `extended-keys`, or
+  # open this config in a terminal that does not speak csi-u, and Ctrl+I starts
+  # switching buffers instead of jumping forward. That is the trade, and it is
+  # invisible from inside the config — which is why it is written down here.
+  bufferKeys = config.cvim.ui.enable && config.cvim.ui.bufferline.enable;
+
+  tabCycle = lib.optionals bufferKeys [
+    {
+      mode = "n";
+      key = "<Tab>";
+      action = "<cmd>BufferLineCycleNext<cr>";
+      options = {
+        desc = "Next buffer";
+        silent = true;
+      };
+    }
+    {
+      mode = "n";
+      key = "<S-Tab>";
+      action = "<cmd>BufferLineCyclePrev<cr>";
+      options = {
+        desc = "Previous buffer";
+        silent = true;
+      };
+    }
+  ];
+
   windowNav = lib.concatMap (d: [
     {
       mode = "n";
@@ -103,27 +143,30 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
-    keymaps = windowNav ++ [
-      {
-        # Manual format. Format-on-save is off by §6 row 5 — a silent on-save
-        # rewrite corrupts files that must stay byte-exact, and the damage
-        # lands in a commit before anyone reads the diff.
-        mode = [
-          "n"
-          "x"
-        ];
-        key = "<leader>F";
-        action.__raw = "function() require('conform').format({ async = true, lsp_format = 'fallback' }) end";
-        options = {
-          desc = "Format buffer/selection";
-          silent = true;
-        };
-      }
-      # NO `gv` BINDING. cnixvim mapped `gv` to `:!code %` (open in VS Code),
-      # shadowing the built-in reselect-last-visual. U9b ported it and flagged
-      # the shadowing rather than deciding, which is the only reason it reached
-      # ZT as a question; ZT dropped it 2026-07-27. `gv` is the built-in
-      # everywhere again — in normal mode and in visual mode.
-    ];
+    keymaps =
+      windowNav
+      ++ tabCycle
+      ++ [
+        {
+          # Manual format. Format-on-save is off by §6 row 5 — a silent on-save
+          # rewrite corrupts files that must stay byte-exact, and the damage
+          # lands in a commit before anyone reads the diff.
+          mode = [
+            "n"
+            "x"
+          ];
+          key = "<leader>F";
+          action.__raw = "function() require('conform').format({ async = true, lsp_format = 'fallback' }) end";
+          options = {
+            desc = "Format buffer/selection";
+            silent = true;
+          };
+        }
+        # NO `gv` BINDING. cnixvim mapped `gv` to `:!code %` (open in VS Code),
+        # shadowing the built-in reselect-last-visual. U9b ported it and flagged
+        # the shadowing rather than deciding, which is the only reason it reached
+        # ZT as a question; ZT dropped it 2026-07-27. `gv` is the built-in
+        # everywhere again — in normal mode and in visual mode.
+      ];
   };
 }
