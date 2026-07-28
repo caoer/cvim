@@ -14,8 +14,10 @@ Two things to know before you start:
 
 - `markview.setup()` **merges** — `vim.tbl_deep_extend("force", …)`. Applying a
   preset overwrites the keys it defines and leaves the rest of the previous
-  one in place. Reset (last section) when a combination starts looking odd.
-- Nothing here survives `:q`. The last section is how a keeper becomes config.
+  one in place. When a combination starts looking odd, run the block under
+  [Reset to your config](#reset-to-your-config).
+- Nothing here survives `:q`. [Making a keeper permanent](#making-a-keeper-permanent)
+  is how one becomes config.
 
 ## Your config
 
@@ -45,7 +47,7 @@ return require("markview.config.markdown").headings.heading_1
 Edit the one word, then `g==`.
 
 ```lua
-local preset = "glow" -- glow | glow_center | slanted | arrowed | simple | marker | numbered
+local preset = "simple" -- glow | glow_center | slanted | arrowed | simple | marker | numbered
 
 require("markview").setup({
   markdown = { headings = require("markview.presets").headings[preset] },
