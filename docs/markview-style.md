@@ -42,12 +42,51 @@ The per-language defaults live outside that table until markview needs them:
 return require("markview.config.markdown").headings.heading_1
 ```
 
+## The whole surface
+
+The sections below are a slice: a preset only ever sets the keys it cares
+about, and every element has more. The full set is in the plugin, so read it
+from there rather than from a list in this file that would be wrong the first
+time cvim's pin moves.
+
+Element names, per language:
+
+```lua
+local out = {}
+
+for _, namespace in ipairs({ "markdown", "markdown_inline", "html", "latex", "typst", "yaml" }) do
+  out[namespace] = vim.tbl_keys(require("markview.config." .. namespace))
+  table.sort(out[namespace])
+end
+
+return out
+```
+
+Every option of one element, with the value it ships with — edit the two
+words. This is the answer to "what else can I set here":
+
+```lua
+local namespace, element = "markdown", "tables"
+
+return require("markview.config." .. namespace)[element]
+```
+
+And the prose for that element, from markview's own wiki at the pinned
+version:
+
+```lua
+local page, element = "Markdown", "tables"
+
+vim.cmd.edit(vim.api.nvim_get_runtime_file("markview.nvim.wiki/" .. page .. ".md", false)[1])
+vim.fn.search("^## " .. element, "w")
+```
+
 ## Headings
 
 Edit the one word, then `g==`.
 
 ```lua
-local preset = "simple" -- glow | glow_center | slanted | arrowed | simple | marker | numbered
+local preset = "glow" -- glow | glow_center | slanted | arrowed | simple | marker | numbered
 
 require("markview").setup({
   markdown = { headings = require("markview.presets").headings[preset] },
@@ -59,7 +98,7 @@ Heading indent is separate from the preset:
 
 ```lua
 require("markview").setup({
-  markdown = { headings = { shift_width = 0 } }, -- 1 is the default: one space per level
+  markdown = { headings = { shift_width = 1 } }, -- 1 is the default: one space per level
 })
 vim.cmd("Markview Render")
 ```
@@ -81,6 +120,34 @@ vim.cmd("Markview Render")
 - [x] checked
 - [-] pending
 
+## List items
+
+No presets here — the markers are set piece by piece.
+
+```lua
+require("markview").setup({
+  markdown = {
+    list_items = {
+      shift_width = 4,  -- columns of indent added per nesting level
+      wrap = true,      -- continuation lines line up under the text
+
+      marker_minus = { text = "●", hl = "MarkviewListItemMinus", add_padding = true },
+      marker_plus = { text = "◈", hl = "MarkviewListItemPlus", add_padding = true },
+      marker_star = { text = "◇", hl = "MarkviewListItemStar", add_padding = true },
+      -- marker_dot and marker_parenthesis take a function: (buffer, item) -> string
+    },
+  },
+})
+vim.cmd("Markview Render")
+```
+
+- minus
+
+* star
+
+1. dot
+1) parenthesis
+
 ## Fenced code blocks
 
 ```lua
@@ -88,8 +155,8 @@ require("markview").setup({
   markdown = {
     code_blocks = {
       style = "simple",          -- "block" draws a padded frame, "simple" only labels
-      sign = false,              -- language icon in the sign column
-      label_direction = "left",
+      sign = true,              -- language icon in the sign column
+      label_direction = "right",
       min_width = 60,
       pad_amount = 2,
     },
@@ -105,8 +172,8 @@ local presets = require("markview.presets")
 
 require("markview").setup({
   markdown = {
-    tables = presets.tables.rounded,          -- none | single | double | rounded | solid
-    horizontal_rules = presets.horizontal_rules.thin, -- thin | thick | double | dashed | dotted | solid | arrowed
+    tables = presets.tables.double,          -- none | single | double | rounded | solid
+    horizontal_rules = presets.horizontal_rules.thick, -- thin | thick | double | dashed | dotted | solid | arrowed
   },
 })
 vim.cmd("Markview Render")
@@ -116,6 +183,38 @@ vim.cmd("Markview Render")
 |---|---|
 | table borders | `rounded` |
 | rule | `thin` |
+
+A table preset is only `parts` and `hl`. Both are editable piece by piece, and
+the three switches above them are not preset material at all:
+
+```lua
+require("markview").setup({
+  markdown = {
+    tables = {
+      block_decorator = true,  -- draw the top and bottom borders
+      use_virt_lines = false,  -- true puts those borders on virtual lines
+      strict = false,          -- true drops leading/trailing cell whitespace
+
+      parts = {
+        top = { "┌", "─", "┐", "┬" },       -- left, fill, right, junction
+        header = { "│", "│", "│" },         -- left, separator, right
+        separator = { "├", "─", "┤", "┼" },
+        row = { "│", "│", "│" },
+        bottom = { "└", "─", "┘", "┴" },
+        overlap = { "┝", "━", "┥", "┿" },   -- where a row meets a merged cell
+        align_left = "╼",
+        align_right = "╾",
+        align_center = { "╴", "╶" },
+      },
+
+      hl = { -- same shape as parts, one highlight group per piece
+        row = { "MarkviewTableBorder", "MarkviewTableBorder", "MarkviewTableBorder" },
+      },
+    },
+  },
+})
+vim.cmd("Markview Render")
+```
 
 ---
 
@@ -133,6 +232,50 @@ vim.cmd("Markview Render")
 
 > [!NOTE]
 > A callout to look at while you flip presets.
+
+## Front matter
+
+The block fenced by `---` at the top of a file. `metadata_minus` is the YAML
+one, `metadata_plus` the TOML one; they take the same keys.
+
+```lua
+require("markview").setup({
+  markdown = {
+    metadata_minus = {
+      hl = "MarkviewCode",
+      border_hl = "MarkviewCodeFg",
+      border_top = "▄",
+      border_bottom = "▀",
+    },
+  },
+})
+vim.cmd("Markview Render")
+```
+
+## Inline markup
+
+Links, images, inline code, footnotes and highlights live under
+`markdown_inline`. Each takes a `default` table plus per-pattern overrides
+keyed by a lua pattern — that is how markview gives `github.com/…` and `.png`
+their own icons, and how you would add your own.
+
+```lua
+require("markview").setup({
+  markdown_inline = {
+    inline_codes = { hl = "MarkviewInlineCode", padding_left = " ", padding_right = " " },
+    hyperlinks = {
+      default = { icon = "󰌷 ", hl = "MarkviewHyperlink" },
+      ["^https://github%.com/"] = { icon = " " },
+    },
+    images = { default = { icon = "󰥶 ", hl = "MarkviewImage" } },
+    highlights = { default = { hl = "MarkviewPalette3", padding_left = " ", padding_right = " " } },
+  },
+})
+vim.cmd("Markview Render")
+```
+
+`inline code`, a [link](https://github.com/OXY2DEV/markview.nvim), and
+==highlighted text== to watch.
 
 ## No nerd font
 
@@ -157,6 +300,50 @@ Splitview renders into a second window instead of over the buffer:
 
 ```vim
 Markview splitToggle
+```
+
+Which modes render, and when markview gives up, are `preview` keys rather than
+commands:
+
+```lua
+require("markview").setup({
+  preview = {
+    modes = { "n", "no", "c" },     -- modes that render at all
+    hybrid_modes = {},              -- modes where the cursor's node un-renders
+    linewise_hybrid_mode = false,   -- true un-renders the whole line instead
+    max_buf_lines = 1000,           -- above this, only the drawn range is done
+    debounce = 150,                 -- ms after a change before redrawing
+    filetypes = { "markdown", "quarto", "rmd", "typst", "asciidoc" },
+    ignore_buftypes = { "nofile" },
+  },
+})
+vim.cmd("Markview Render")
+```
+
+## Colours
+
+Rendering draws with highlight groups and takes the colours from the
+colorscheme — which is why the render follows cvim's day/night flip. Override
+one group live:
+
+```lua
+vim.api.nvim_set_hl(0, "MarkviewHeading1", { fg = "#ff9e64", bold = true })
+vim.cmd("Markview Render")
+```
+
+Every group markview has defined in this session:
+
+```lua
+local names = {}
+
+for name in pairs(vim.api.nvim_get_hl(0, {})) do
+  if name:find("^Markview") then
+    names[#names + 1] = name
+  end
+end
+
+table.sort(names)
+return names
 ```
 
 ## Reset to your config
