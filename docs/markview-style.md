@@ -10,6 +10,10 @@ style changes under you — no rebuild, no restart.
 markdown half. It runs `lua` and `vim` blocks only, and names any other
 language back at you rather than guessing.
 
+`gO` lists every heading here as an outline and jumps to the one you pick;
+`]]` and `[[` step between them. Both are neovim's own markdown bindings, and
+`<leader>xs` opens the same thing as a live sidebar.
+
 Two things to know before you start:
 
 - `markview.setup()` **merges** — `vim.tbl_deep_extend("force", …)`. Applying a
