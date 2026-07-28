@@ -45,25 +45,35 @@
 #
 # So the rule keys on the CONDITION: interpolations are removed before the
 # platform predicate is looked for, and the predicate matched is a BOOLEAN one
-# (`hostPlatform.is*`, `stdenv.is*`, a comparison against `hostPlatform.system`)
-# rather than the bare `.system` string those messages interpolate.
+# (`{host,target,build}Platform.is*`, `stdenv.is*`, or a comparison against any
+# `.system`) rather than the bare `.system` string those messages interpolate.
 #
-# THE SECOND RULE, AND WHY THE FIRST ONE ALONE WAS A TRAP. The check above is
-# a per-file AND, so it only ever sees a violation that fits in ONE file. Move
-# the plugin block into its own file and pull it in conditionally —
+# The comparison arm is spelled `[a-zA-Z]\.system` and not `hostPlatform\.system`
+# on purpose: `pkgs.system == "aarch64-darwin"` is the same condition by another
+# route, and pinning the arm to one attribute path missed it.
+#
+# THE BYPASS THAT ISN'T — DO NOT ADD A RULE FOR IT. This check is a per-file
+# AND, so on paper it misses a violation split across two files: the plugin
+# block moved into its own file and pulled in conditionally —
 #
 #     imports = lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ ./darwin.nix ];
 #
-# — and both halves are clean: the importer has the condition and no plugin
-# config, the importee has plugin config and no condition. Same invisible
-# plugin, guard green.
+# — where the importer has the condition and no plugin config, and the importee
+# has plugin config and no condition. Both halves read clean.
 #
-# That is not an exotic evasion. It is idiomatic Nix, and it is the shape a
-# reader reaches for NEXT, because the message below opens by telling them to
-# split the file. The message goes on to say "declare the plugin
-# unconditionally", which is the actual fix — but a guard that enforces only
-# the first half of its own advice points at the bypass. So conditional
-# `imports` are a build error too, and the tree has none to migrate.
+# That shape cannot be written here, and the module system says so louder than
+# this file could. Neither `pkgs` nor `system` is externally provided to these
+# modules, so naming either one inside `imports` needs `config` to compute what
+# to import — `error: infinite recursion encountered`, with nixpkgs itself
+# advising "consider importing unconditionally, and using `mkEnableOption` and
+# `mkIf` to control its effect". Measured by planting exactly that file.
+#
+# A guard for it was written, and removed after that measurement. The recursion
+# aborts evaluation during the module fixpoint, which is BEFORE any assertion
+# is reachable — so the check could never fire, and only the recursion error
+# was ever seen. It would earn its lines back only if something platform-shaped
+# were later threaded through real `specialArgs` (`lib` is the only externally
+# provided argument today). Reopen it then, not before.
 #
 # WHAT THIS CANNOT SEE. Text is a weaker instrument than the evaluated module
 # and the limits are real; they are written down so the next reader trusts this
@@ -128,21 +138,6 @@ let
   platformCondition = "((hostPlatform|targetPlatform|buildPlatform)\\.is|stdenv\\.is|[a-zA-Z]\\.system[[:space:]]*(==|!=))";
   pluginConfig = "(plugins\\.[a-zA-Z]|lazyLoad|extraPlugins)";
 
-  # Each `imports = … ;` definition, isolated. `[^;]*` stops at the statement
-  # end — and unlike `.`, a negated bracket crosses newlines, so a multi-line
-  # import list is captured whole.
-  #
-  # Statement-scoped and not file-scoped, deliberately. Fourteen files under
-  # `modules/` define `imports`, every one of them unconditional; a file-scoped
-  # AND would flag any of them that happened to also carry a platform condition
-  # elsewhere — `codesign.nix` with an import list added is exactly that shape,
-  # and it is correct.
-  importStatements =
-    text:
-    map builtins.head (
-      builtins.filter builtins.isList (builtins.split "(imports[[:space:]]*=[^;]*;)" text)
-    );
-
   classify =
     text:
     let
@@ -151,7 +146,6 @@ let
     {
       conditional = matches platformCondition c;
       plugins = matches pluginConfig c;
-      conditionalImport = lib.any (matches platformCondition) (importStatements c);
     };
 
   # ------------------------------------------------------------- the scan
@@ -191,7 +185,6 @@ let
   violations = map (f: f.rel) (
     builtins.filter (f: f.verdict.conditional && f.verdict.plugins) scanned
   );
-  conditionalImports = map (f: f.rel) (builtins.filter (f: f.verdict.conditionalImport) scanned);
 
   # ------------------------------------------------------------- self-test
   #
@@ -204,8 +197,6 @@ let
 
   fires = classify (builtins.readFile ./fixtures/fires.nix);
   quiet = classify (builtins.readFile ./fixtures/quiet.nix);
-  importsFires = classify (builtins.readFile ./fixtures/imports-fires.nix);
-  importsQuiet = classify (builtins.readFile ./fixtures/imports-quiet.nix);
 in
 {
   config.assertions = [
@@ -232,29 +223,6 @@ in
         rather than a condition, the detector has regressed — that shape is
         correct and `modules/platform-guard/fixtures/quiet.nix` asserts it stays
         quiet. Fix the detector, not the module.
-      '';
-    }
-
-    {
-      assertion = conditionalImports == [ ];
-      message = ''
-        These files pull in another module through a platform condition:
-
-        ${lib.concatMapStringsSep "\n" (rel: "  - modules/${rel}") conditionalImports}
-
-        A conditional `imports` hides the same thing the check above catches,
-        one file further out. Whatever the imported module declares is absent
-        from every config the CI lint evaluates — it lints `x86_64-linux` and
-        only `x86_64-linux` — so a darwin-only import passes green while its
-        plugins never load on the platform that has them. Nothing in the
-        imported file looks wrong, because nothing in it IS wrong; the
-        conditionality lives here.
-
-        Import the module unconditionally and drive the platform difference
-        inside it, through plugin settings rather than through whether the
-        declaration exists at all. `modules/zt/codesign.nix` is the shape that
-        works: one `mkIf … isDarwin` carrying `extraConfigLua` and no plugin
-        config, reached by an import that is always taken.
       '';
     }
 
@@ -304,40 +272,5 @@ in
       '';
     }
 
-    {
-      assertion = importsFires.conditionalImport;
-      message = ''
-        The platform guard no longer detects a conditional import.
-
-        `modules/platform-guard/fixtures/imports-fires.nix` guards its
-        `imports` with `hostPlatform.isDarwin` — the bypass that splits a
-        violation across two clean-looking files — and the detector now reads
-        it as conditionalImport=${lib.boolToString importsFires.conditionalImport}.
-
-        The per-file check is intact, which is exactly why this is dangerous:
-        the guard still catches the one-file shape and now silently permits the
-        two-file one, so the tree looks protected while the easier route is
-        open. Repair the detector.
-      '';
-    }
-
-    {
-      assertion = importsQuiet.conditional && !importsQuiet.conditionalImport;
-      message = ''
-        The platform guard now fires on an unconditional import.
-
-        `modules/platform-guard/fixtures/imports-quiet.nix` has a plain
-        `imports` list and, separately, a `mkIf … isDarwin` carrying only
-        `extraConfigLua` — `modules/zt/codesign.nix` with imports added. The
-        detector now reads it as conditional=${lib.boolToString importsQuiet.conditional},
-        conditionalImport=${lib.boolToString importsQuiet.conditionalImport}.
-
-        This is the file-scope regression: matching the platform predicate
-        anywhere in the file instead of inside the `imports` statement. Fourteen
-        files under `modules/` define `imports`, all unconditional, and this
-        turns each one into a violation the day it gains a guarded
-        `extraConfigLua`. Scope the match back to the statement.
-      '';
-    }
   ];
 }
