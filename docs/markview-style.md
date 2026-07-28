@@ -90,7 +90,7 @@ vim.fn.search("^## " .. element, "w")
 Edit the one word, then `g==`.
 
 ```lua
-local preset = "glow" -- glow | glow_center | slanted | arrowed | simple | marker | numbered
+local preset = "slanted" -- glow | glow_center | slanted | arrowed | simple | marker | numbered
 
 require("markview").setup({
   markdown = { headings = require("markview.presets").headings[preset] },
@@ -335,6 +335,9 @@ vim.api.nvim_set_hl(0, "MarkviewHeading1", { fg = "#ff9e64", bold = true })
 vim.cmd("Markview Render")
 ```
 
+An override like that lasts until the next colorscheme load, which is every
+appearance flip.
+
 Every group markview has defined in this session:
 
 ```lua
@@ -350,11 +353,58 @@ table.sort(names)
 return names
 ```
 
+## Dimming the render
+
+Backgrounds are computed rather than read: markview takes `Normal`'s background
+and lightens it per element. Three globals say how far. None of them touches a
+foreground, and lower is dimmer.
+
+| global | what it tints | default here |
+|---|---|---|
+| `markview_alpha` | headings, callouts, checkboxes, highlights | `0.15` |
+| `markview_code_alpha` | fenced code blocks | `0.15` |
+| `markview_inline_code_alpha` | inline code | `0.2` |
+
+The first mixes `Normal`'s background toward the element's own foreground in
+Oklab; the other two scale that background's lightness by `1 + alpha` and leave
+the hue alone. The defaults above are markview's dark branch, read off
+tokyonight-night.
+
+Setting a global and calling setup again changes nothing on its own —
+`highlights.set_hl` returns early on a group that already exists. Blank
+markview's groups first:
+
+```lua
+vim.g.markview_alpha = 0.08
+vim.g.markview_code_alpha = 0.06
+vim.g.markview_inline_code_alpha = 0.1
+
+for name in pairs(vim.api.nvim_get_hl(0, {})) do
+  if name:find("^Markview") then
+    vim.api.nvim_set_hl(0, name, {})
+  end
+end
+
+require("markview.highlights").setup()
+vim.cmd("Markview Render")
+```
+
+A colorscheme load clears every group and markview recomputes on `ColorScheme`,
+so a global survives the day/night flip where an `nvim_set_hl` override does
+not.
+
+The ink is the colorscheme's, not markview's: heading foregrounds come from
+`@markup.heading.N.markdown`, inline code from `@markup.raw`. Dimming those is
+`tokyonight.on_highlights` in `modules/ui/theme.nix`, and it moves the colour
+everywhere rather than only in markdown.
+
 ## Reset to your config
 
 `setup()` only ever merges, so the way back is to drop the accumulated table
 and re-apply the shipped one. Nothing here is a copy: the settings come from
 the build, so this stays a true reset after `modules/ui/markview.nix` changes.
+It resets the settings table only — an alpha you set above lives in `vim.g` and
+survives it.
 
 ```lua
 local spec = require("markview.spec")
@@ -391,8 +441,15 @@ plugins.markview.settings = {
 };
 ```
 
+The alphas are not settings — markview reads them off `vim.g` — so they go into
+the same file as globals:
+
+```nix
+globals.markview_alpha = 0.08;
+```
+
 Per host, without touching this repo, the same attrs go through
 `extendModules` — see the README's "Customizing a host".
 
-`g==` refuses the block above, by name: it is nix, and nix does not run in an
-editor.
+`g==` refuses both blocks above, by name: they are nix, and nix does not run in
+an editor.
