@@ -14,7 +14,12 @@
 #             error text in the float; nothing crashes.
 #   partial — none: jj is in extraPackages, so the binary is closure-carried.
 #   error   — a failing jj command shows its stderr in the float, loud.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.cvim.editor;
 

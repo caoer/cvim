@@ -15,7 +15,12 @@
 #   partial — none: the plugin has no external deps.
 #   error   — leaving multicursor mode is <esc> (plugin default); a stuck
 #             state is cleared by :MCclear if it ever occurs.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.cvim.editor;
 
@@ -45,15 +50,15 @@ in
     '';
 
     keymaps = [
-      (mc "a" "Add cursor above" ''lineAddCursor(-1)'')
-      (mc "A" "Skip cursor above" ''lineSkipCursor(-1)'')
-      (mc "b" "Add cursor below" ''lineAddCursor(1)'')
-      (mc "B" "Skip cursor below" ''lineSkipCursor(1)'')
-      (mc "n" "Add cursor by match (next)" ''matchAddCursor(1)'')
-      (mc "p" "Add cursor by match (prev)" ''matchAddCursor(-1)'')
-      (mc "s" "Skip cursor by match (next)" ''matchSkipCursor(1)'')
-      (mc "S" "Skip cursor by match (prev)" ''matchSkipCursor(-1)'')
-      (mc "t" "Toggle cursor" ''toggleCursor()'')
+      (mc "a" "Add cursor above" "lineAddCursor(-1)")
+      (mc "A" "Skip cursor above" "lineSkipCursor(-1)")
+      (mc "b" "Add cursor below" "lineAddCursor(1)")
+      (mc "B" "Skip cursor below" "lineSkipCursor(1)")
+      (mc "n" "Add cursor by match (next)" "matchAddCursor(1)")
+      (mc "p" "Add cursor by match (prev)" "matchAddCursor(-1)")
+      (mc "s" "Skip cursor by match (next)" "matchSkipCursor(1)")
+      (mc "S" "Skip cursor by match (prev)" "matchSkipCursor(-1)")
+      (mc "t" "Toggle cursor" "toggleCursor()")
     ];
   };
 }

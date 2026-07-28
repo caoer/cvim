@@ -79,9 +79,16 @@ let
 
   # `${…}` antiquotations. Applied twice so one level of nesting is removed
   # too; `[^{}]*` cannot run past a brace, so each pass is bounded.
+  #
+  # `$`, `{` and `}` are spelled as bracket expressions rather than backslash
+  # escapes. POSIX ERE leaves `\{` undefined, and the two `std::regex`
+  # implementations Nix is built against disagree: libc++ accepts `\$\{…\}`, so
+  # darwin evaluated it green, while libstdc++ rejects the whole pattern and
+  # every linux build died with `invalid regular expression`. Inside a bracket
+  # expression all three are literal on both.
   dropInterpolations =
     let
-      pass = removeMatches "\\$\\{[^{}]*\\}";
+      pass = removeMatches "[$][{][^{}]*[}]";
     in
     text: pass (pass text);
 

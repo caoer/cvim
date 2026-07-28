@@ -50,9 +50,15 @@ in
     plugins.neorg = {
       enable = true;
       settings.load = {
-        "core.defaults" = { __empty = null; };
-        "core.concealer" = { __empty = null; };
-        "core.journal" = { __empty = null; };
+        "core.defaults" = {
+          __empty = null;
+        };
+        "core.concealer" = {
+          __empty = null;
+        };
+        "core.journal" = {
+          __empty = null;
+        };
         "core.dirman".config = {
           workspaces.notes = "~/notes";
           default_workspace = "notes";
@@ -66,8 +72,8 @@ in
       (nmap "J" "Custom Date Journal" "<cmd>Neorg journal custom<cr>")
       (nmap "i" "Open Index" "<cmd>Neorg index<cr>")
       (nmap "r" "Return from Notes" "<cmd>Neorg return<cr>")
-      (nlua "n" "New Scratch Buffer" ''Snacks.scratch()'')
-      (nlua "s" "Select Scratch Buffer" ''Snacks.scratch.select()'')
+      (nlua "n" "New Scratch Buffer" "Snacks.scratch()")
+      (nlua "s" "Select Scratch Buffer" "Snacks.scratch.select()")
     ]
     ++ lib.optionals pickerOn [
       (nlua "g" "Grep Notes" ''Snacks.picker.grep({ cwd = vim.fn.expand("~/notes") })'')

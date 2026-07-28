@@ -36,32 +36,105 @@ in
         # U13 day-1 drive: "I want icon and name, not just one letter."
         # Names only label prefixes that have bindings; which-key drops empty
         # ones.
-        ++ map
-          (g: {
-            __unkeyed-1 = "<leader>${g.k}";
-            group = g.name;
-            icon = g.icon;
-          })
-          [
-            { k = "a"; name = "AI Assistant"; icon = "󰚩"; }
-            { k = "b"; name = "Buffers"; icon = "󰈔"; }
-            { k = "c"; name = "Secrets"; icon = "󰌾"; }
-            { k = "f"; name = "Find"; icon = "󰍉"; }
-            { k = "g"; name = "Git"; icon = "󰊢"; }
-            { k = "j"; name = "Jujutsu"; icon = "󰘬"; }
-            { k = "l"; name = "LSP"; icon = "󰿘"; }
-            { k = "m"; name = "Multicursor"; icon = "󰇀"; }
-            { k = "n"; name = "Notes"; icon = "󱞁"; }
-            { k = "R"; name = "Run"; icon = "󰑮"; }
-            { k = "s"; name = "Search"; icon = "󰺮"; }
-            { k = "S"; name = "Sessions"; icon = "󰆓"; }
-            { k = "t"; name = "Tools"; icon = "󰦬"; }
-            { k = "u"; name = "UI/UX"; icon = "󰙵"; }
-            { k = "v"; name = "Vim training"; icon = "󰛕"; }
-            { k = "x"; name = "Diagnostics"; icon = "󱖫"; }
-            { k = "y"; name = "Yank"; icon = "󰆏"; }
-            { k = "z"; name = "Language"; icon = "󰗊"; }
-          ];
+        ++
+          map
+            (g: {
+              __unkeyed-1 = "<leader>${g.k}";
+              group = g.name;
+              icon = g.icon;
+            })
+            [
+              {
+                k = "a";
+                name = "AI Assistant";
+                icon = "󰚩";
+              }
+              {
+                k = "b";
+                name = "Buffers";
+                icon = "󰈔";
+              }
+              {
+                k = "c";
+                name = "Secrets";
+                icon = "󰌾";
+              }
+              {
+                k = "f";
+                name = "Find";
+                icon = "󰍉";
+              }
+              {
+                k = "g";
+                name = "Git";
+                icon = "󰊢";
+              }
+              {
+                k = "j";
+                name = "Jujutsu";
+                icon = "󰘬";
+              }
+              {
+                k = "l";
+                name = "LSP";
+                icon = "󰿘";
+              }
+              {
+                k = "m";
+                name = "Multicursor";
+                icon = "󰇀";
+              }
+              {
+                k = "n";
+                name = "Notes";
+                icon = "󱞁";
+              }
+              {
+                k = "R";
+                name = "Run";
+                icon = "󰑮";
+              }
+              {
+                k = "s";
+                name = "Search";
+                icon = "󰺮";
+              }
+              {
+                k = "S";
+                name = "Sessions";
+                icon = "󰆓";
+              }
+              {
+                k = "t";
+                name = "Tools";
+                icon = "󰦬";
+              }
+              {
+                k = "u";
+                name = "UI/UX";
+                icon = "󰙵";
+              }
+              {
+                k = "v";
+                name = "Vim training";
+                icon = "󰛕";
+              }
+              {
+                k = "x";
+                name = "Diagnostics";
+                icon = "󱖫";
+              }
+              {
+                k = "y";
+                name = "Yank";
+                icon = "󰆏";
+              }
+              {
+                k = "z";
+                name = "Language";
+                icon = "󰗊";
+              }
+            ];
     };
   };
 }

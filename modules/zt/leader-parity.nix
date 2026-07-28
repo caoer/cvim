@@ -167,11 +167,11 @@ in
     ]
     # ── toggles group — curated from khanelivim's 67 ────────────────────────
     ++ [
-      (toggleMap "w" "Toggle wrap" ''vim.wo.wrap = not vim.wo.wrap'')
-      (toggleMap "s" "Toggle spell" ''vim.wo.spell = not vim.wo.spell'')
-      (toggleMap "l" "Toggle line numbers" ''vim.wo.number = not vim.wo.number'')
-      (toggleMap "r" "Toggle relative numbers" ''vim.wo.relativenumber = not vim.wo.relativenumber'')
-      (toggleMap "c" "Toggle conceal" ''vim.wo.conceallevel = vim.wo.conceallevel == 0 and 2 or 0'')
+      (toggleMap "w" "Toggle wrap" "vim.wo.wrap = not vim.wo.wrap")
+      (toggleMap "s" "Toggle spell" "vim.wo.spell = not vim.wo.spell")
+      (toggleMap "l" "Toggle line numbers" "vim.wo.number = not vim.wo.number")
+      (toggleMap "r" "Toggle relative numbers" "vim.wo.relativenumber = not vim.wo.relativenumber")
+      (toggleMap "c" "Toggle conceal" "vim.wo.conceallevel = vim.wo.conceallevel == 0 and 2 or 0")
       (toggleMap "d" "Buffer Diagnostics toggle" ''
         local buf = vim.api.nvim_get_current_buf()
         local on = vim.diagnostic.is_enabled({ bufnr = buf })
@@ -188,7 +188,9 @@ in
         vim.lsp.inlay_hint.enable(not on)
         vim.notify("Inlay hints " .. (on and "off" or "on"))
       '')
-      (toggleMap "b" "Toggle dark/light background" ''vim.o.background = vim.o.background == "dark" and "light" or "dark"'')
+      (toggleMap "b" "Toggle dark/light background"
+        ''vim.o.background = vim.o.background == "dark" and "light" or "dark"''
+      )
     ];
   };
 }
