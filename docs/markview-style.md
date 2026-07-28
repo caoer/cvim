@@ -17,7 +17,18 @@ Two things to know before you start:
   one in place. Reset (last section) when a combination starts looking odd.
 - Nothing here survives `:q`. The last section is how a keeper becomes config.
 
-## What is set right now
+## Your config
+
+What this build passed to `markview.setup()` — generated from the evaluated
+attrs by `modules/ui/markview.nix`, so it is your config even on a host that
+overrides it through `extendModules`:
+
+```lua
+return require("cvim.markview").settings
+```
+
+What markview is holding right now, which drifts from the above as you run
+blocks below:
 
 ```lua
 return require("markview.spec").config.preview
@@ -146,16 +157,17 @@ Splitview renders into a second window instead of over the buffer:
 Markview splitToggle
 ```
 
-## Reset to what cvim ships
+## Reset to your config
 
 `setup()` only ever merges, so the way back is to drop the accumulated table
-and re-apply cvim's own line from `modules/ui/markview.nix`.
+and re-apply the shipped one. Nothing here is a copy: the settings come from
+the build, so this stays a true reset after `modules/ui/markview.nix` changes.
 
 ```lua
 local spec = require("markview.spec")
 spec.config = vim.deepcopy(spec.default)
 
-require("markview").setup({ preview = { icon_provider = "mini" } })
+require("markview").setup(require("cvim.markview").settings)
 vim.cmd("Markview Render")
 ```
 
