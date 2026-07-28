@@ -23,6 +23,29 @@ in
       blink-cmp = {
         enable = true;
         settings = {
+          # Blink's own `default` preset leaves `<Tab>` as snippet-jump-only,
+          # so the insert menu is accepted with `<C-y>` and Tab falls through
+          # to indent. ZT reads a visible menu as "Tab takes this one", which
+          # is what `super-tab` binds: accept the selection, or jump the
+          # snippet when one is active. `<C-n>`/`<C-p>` still navigate.
+          keymap.preset = "super-tab";
+
+          # The `:` line. blink takes it over by default
+          # (config/modes/cmdline.lua) and its `cmdline` preset already puts
+          # accept on `<Tab>`, which is the same reflex `super-tab` gives the
+          # insert menu — so the takeover stays and the keymap is left alone.
+          #
+          # Two of its defaults are cut. `buffer` in `sources` offers words
+          # from the file you are editing as command-line candidates, so typing
+          # `:e` proposes prose; only `cmdline` belongs on the `:` line. Ghost
+          # text writes a grey preview into the line before any key is pressed,
+          # which reads as text you typed. Both are pure surprise, and neither
+          # is load-bearing for completing a command.
+          cmdline = {
+            sources = [ "cmdline" ];
+            completion.ghost_text.enabled = false;
+          };
+
           fuzzy = {
             implementation = "prefer_rust";
             prebuilt_binaries.download = false;

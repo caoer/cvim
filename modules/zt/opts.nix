@@ -6,6 +6,11 @@
 # file. `backup` stays here: it is a plain editor preference, not part of the
 # secret guard's mechanism.
 #
+# Indentation is NOT here. A lone `softtabstop = 2` used to sit in this list
+# and never took effect — vim-sleuth overwrote it in every real buffer. The
+# whole four-option set now lives in ../core/text.nix, which owns indentation.
+# Setting any of them here would silently beat that layer.
+#
 # cnixvim needed `lib.mkForce` on several of these to beat khanelivim's
 # values. cvim has no khanelivim and inherits nothing, so plain assignment is
 # both sufficient and honest — a mkForce here would imply a contest that does
@@ -23,7 +28,6 @@ in
       backup = false;
       hlsearch = false;
       scrolloff = 8;
-      softtabstop = 2;
       updatetime = 50;
     };
   };

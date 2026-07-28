@@ -1,4 +1,4 @@
-# Text objects, surround, pairs, and indentation detection
+# Text objects, surround, pairs, and indentation
 #
 # empty:   a buffer with no matching text object — the operator simply does nothing and the buffer is unchanged.
 # partial: a filetype without a treesitter grammar loses mini.ai's function/class targets but keeps its bracket and quote ones.
@@ -20,6 +20,31 @@
 { config, lib, ... }:
 let
   cfg = config.cvim.editor;
+
+  # Filetypes the house indent must NOT touch: their hard tabs are mandated by
+  # the format or its formatter, not chosen by taste. A space-indented Makefile
+  # fails with `missing separator`, and gofmt rewrites Go back on every save —
+  # so overriding these produces broken files, not differently-styled ones.
+  #
+  # Sourced by reading every runtime ftplugin that issues `setlocal
+  # noexpandtab` in the Neovim this build ships (0.12.4). It is a snapshot, not
+  # a derived value: a Neovim bump can add one, and the symptom is a file whose
+  # tool rejects it. `man` is on the list because it is a rendered view.
+  tabMandated = [
+    "changelog"
+    "flexwiki"
+    "gdscript"
+    "go"
+    "gomod"
+    "hare"
+    "haredoc"
+    "idris2"
+    "make"
+    "man"
+    "scdoc"
+  ];
+
+  tabMandatedLua = lib.concatMapStringsSep ", " (ft: "[${builtins.toJSON ft}] = true") tabMandated;
 in
 {
   config = lib.mkIf cfg.enable {
@@ -59,18 +84,74 @@ in
       };
     };
 
-    # Indentation detection, gated separately by ZT
-    # (decisions/u3-indent-detection.md).
+    # Indentation. ZT's call on his first daily-drive week: ONE Tab width
+    # everywhere, chosen here, rather than a width guessed per buffer.
+    #
+    # vim-sleuth used to own this and is now gone. It was doing its job — but
+    # its job made `<Tab>` a variable: it set `softtabstop=-1` and a per-file
+    # `shiftwidth`, so Tab moved 2 columns in a .nix file and 4 in the justfile.
+    # A key whose width depends on the buffer cannot be typed by reflex, and
+    # that is what a daily driver needs from Tab. Adapting to foreign repos is
+    # the accepted cost.
     #
     # Neovim's editorconfig support is BUILT IN and nixvim enables it by
-    # default (`editorconfig.enable`, modules/editorconfig.nix), so
-    # `.editorconfig` files are already honoured with no plugin at all. This
-    # layer relies on that and does not re-enable it — the reliance is stated
-    # so a later unit does not disable it believing it unused.
+    # default (`editorconfig.enable`, modules/editorconfig.nix), so a repo that
+    # states its own style in `.editorconfig` still overrides these. That is
+    # the deliberate escape hatch left in place of sleuth's guessing: declared
+    # style is honoured, undeclared style is ours. The reliance is stated so a
+    # later unit does not disable it believing it unused.
     #
-    # vim-sleuth covers only the gap: a file with NO `.editorconfig`, where it
-    # guesses indentation from surrounding content instead of silently applying
-    # our defaults and mixing styles into the diff.
-    plugins.sleuth.enable = true;
+    # `softtabstop = -1` means "follow shiftwidth", so the values cannot drift
+    # apart: change `shiftwidth` and Tab, `>>` and `<<` all follow.
+    #
+    # `tabstop` is deliberately ABSENT and left at Neovim's 8. It is a global,
+    # and the tab-mandated filetypes below inherit whatever it holds — setting
+    # it to 2 here rendered Go and Makefile tabs 2 columns wide, which is the
+    # one visible change those files were promised they would not get. The
+    # house `tabstop = 2` is applied buffer-locally in the autocmd instead.
+    opts = {
+      expandtab = true;
+      shiftwidth = 2;
+      softtabstop = -1;
+    };
+
+    # `opts` above is only the baseline. Neovim ships 42 runtime ftplugins that
+    # `setlocal` their own indentation, and a FileType autocmd runs AFTER them,
+    # so markdown would still hand you 4 spaces without this. Re-applying the
+    # values buffer-locally is what makes the width one number instead of 42.
+    autoGroups.cvim_indent.clear = true;
+
+    autoCmd = [
+      {
+        event = [ "FileType" ];
+        group = "cvim_indent";
+        desc = "Re-apply the house indent over the runtime ftplugin defaults";
+        callback.__raw = ''
+          function(args)
+            local buf = args.buf
+            local mandated = { ${tabMandatedLua} }
+
+            -- Hard-tab format. It still needs normalising, not just skipping:
+            -- the global `shiftwidth = 2` and `softtabstop = -1` reach here
+            -- too, and under `noexpandtab` they make Tab insert two SPACES
+            -- into a file whose tool demands a tab. Zero for both means one
+            -- indent level is exactly one tab, `tabstop` columns wide, which
+            -- is what `go.vim` and `make.vim` already set for themselves.
+            -- `tabstop` is left untouched so gdscript keeps its 4 and man its 8.
+            if mandated[vim.bo[buf].filetype] then
+              vim.bo[buf].expandtab = false
+              vim.bo[buf].shiftwidth = 0
+              vim.bo[buf].softtabstop = 0
+              return
+            end
+
+            vim.bo[buf].expandtab = true
+            vim.bo[buf].shiftwidth = 2
+            vim.bo[buf].tabstop = 2
+            vim.bo[buf].softtabstop = -1
+          end
+        '';
+      }
+    ];
   };
 }
