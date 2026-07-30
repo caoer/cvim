@@ -77,6 +77,24 @@ in
         vim.w.zt_marker_window = nil
       end
 
+      -- `zO` on a CLOSED fold opens the fold and everything nested inside it.
+      -- Native zO only opens folds CONTAINING the cursor line — on a markdown
+      -- heading the nested sections sit below the cursor, not around it, so
+      -- native zO left them closed (ZT, 2026-07-30). `:{range}foldopen!` is
+      -- the primitive that reaches inside; the range is the closed fold's own
+      -- span. Off a closed fold the native behavior is kept, including its
+      -- E490 complaint on unfolded text.
+      function _G.zt_open_fold_rec()
+        local first = vim.fn.foldclosed(".")
+        if first == -1 then
+          local ok, err = pcall(vim.cmd, "normal! zO")
+          if not ok then vim.notify(err:match("E%d+.*") or err, vim.log.levels.WARN) end
+          return
+        end
+        local last = vim.fn.foldclosedend(".")
+        vim.cmd(first .. "," .. last .. "foldopen!")
+      end
+
       function _G.zt_toggle_foldmethod()
         if vim.b.zt_marker_folds then
           vim.b.zt_marker_folds = nil
@@ -155,6 +173,15 @@ in
         action.__raw = "function() _G.zt_toggle_foldmethod() end";
         options = {
           desc = "Toggle fold method (marker/treesitter)";
+          silent = true;
+        };
+      }
+      {
+        mode = "n";
+        key = "zO";
+        action.__raw = "function() _G.zt_open_fold_rec() end";
+        options = {
+          desc = "Open fold and everything nested inside it";
           silent = true;
         };
       }
