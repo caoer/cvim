@@ -37,6 +37,16 @@ in
       settings.markdown.block_quotes.__raw = ''require("markview.presets").block_quotes.obsidian'';
     };
 
+    # How far markview lightens `Normal`'s background per element — lower is
+    # dimmer. These are globals, not settings: markview reads them off `vim.g`
+    # when it computes its highlight groups, so they survive the day/night
+    # flip. markview's own dark branch is 0.15 / 0.15 / 0.2.
+    globals = {
+      markview_alpha = 0.02;
+      markview_code_alpha = 0.02;
+      markview_inline_code_alpha = 0.01;
+    };
+
     # The shipped settings as data, for a session that has been experimenting.
     #
     # `markview.setup()` only ever merges (`vim.tbl_deep_extend "force"`), so

@@ -235,13 +235,55 @@ require("markview").setup({
 vim.cmd("Markview Render")
 ```
 
-The rest of the Obsidian surface — `[[wikilinks]]`, `![[embeds]]`,
-`[[page#^block]]` references, `#tags`, `==highlights==`, the extended checkbox
-states, footnotes, front matter — needs no enabling: every one is on by
-default at the pinned version.
-
 > [!NOTE]
 > A callout to look at while you flip presets.
+
+## The Obsidian surface
+
+Nothing Obsidian writes needs enabling — every element in this section is on
+by default at the pinned version. The section doubles as the render check:
+an element that stops drawing after a pin move broke upstream.
+
+A [[wikilink]], an aliased [[page|wikilink]], a heading link [[page#heading]],
+and a block reference [[page#^block-id]]. An embed: ![[diagram.png]]. Tags
+like #project and #nested/tag, and ==highlighted text==.
+
+The extended checkbox states, beyond the three under [Checkboxes](#checkboxes):
+
+- [/] in progress
+- [>] forwarded
+- [<] scheduled
+- [?] question
+- [!] important
+
+A foldable callout renders like a plain one:
+
+> [!TIP]- Folded in Obsidian, open here
+> The body.
+
+A footnote renders at both ends[^ob].
+
+[^ob]: Down here too.
+
+Front matter is the one piece this section cannot show: it only counts at
+line 1, and this file starts with a heading. [Front matter](#front-matter)
+below styles it.
+
+Each element takes a `default` table plus per-pattern overrides, same as
+[Inline markup](#inline-markup). These are the shipped values — edit and
+`g==`:
+
+```lua
+require("markview").setup({
+  markdown_inline = {
+    internal_links = { default = { icon = " ", hl = "MarkviewPalette7Fg" } },
+    embed_files = { default = { icon = "󰠮 ", hl = "MarkviewPalette7Fg" } },
+    block_references = { default = { icon = "󰿨 ", hl = "MarkviewPalette6Fg", file_hl = "MarkviewPalette0Fg" } },
+    tags = { default = { hl = "MarkviewPalette7", padding_left = " ", padding_right = " " } },
+  },
+})
+vim.cmd("Markview Render")
+```
 
 ## Front matter
 
@@ -367,23 +409,24 @@ foreground, and lower is dimmer.
 
 | global | what it tints | default here |
 |---|---|---|
-| `markview_alpha` | headings, callouts, checkboxes, highlights | `0.15` |
-| `markview_code_alpha` | fenced code blocks | `0.15` |
-| `markview_inline_code_alpha` | inline code | `0.2` |
+| `markview_alpha` | headings, callouts, checkboxes, highlights | `0.02` |
+| `markview_code_alpha` | fenced code blocks | `0.02` |
+| `markview_inline_code_alpha` | inline code | `0.01` |
 
 The first mixes `Normal`'s background toward the element's own foreground in
 Oklab; the other two scale that background's lightness by `1 + alpha` and leave
-the hue alone. The defaults above are markview's dark branch, read off
-tokyonight-night.
+the hue alone. The defaults above are what cvim ships, set as globals in
+`modules/ui/markview.nix`; markview's own dark branch would be `0.15` /
+`0.15` / `0.2`.
 
 Setting a global and calling setup again changes nothing on its own —
 `highlights.set_hl` returns early on a group that already exists. Blank
 markview's groups first:
 
 ```lua
-vim.g.markview_alpha = 0.08
-vim.g.markview_code_alpha = 0.06
-vim.g.markview_inline_code_alpha = 0.1
+vim.g.markview_alpha = 0.02
+vim.g.markview_code_alpha = 0.02
+vim.g.markview_inline_code_alpha = 0.01
 
 for name in pairs(vim.api.nvim_get_hl(0, {})) do
   if name:find("^Markview") then
@@ -447,11 +490,11 @@ plugins.markview.settings = {
 };
 ```
 
-The alphas are not settings — markview reads them off `vim.g` — so they go into
-the same file as globals:
+The alphas are not settings — markview reads them off `vim.g` — so they live
+in the same file as globals; this is how the shipped dim is set:
 
 ```nix
-globals.markview_alpha = 0.08;
+globals.markview_alpha = 0.02;
 ```
 
 Per host, without touching this repo, the same attrs go through
