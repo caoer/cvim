@@ -158,6 +158,21 @@ in
           silent = true;
         };
       }
-    ];
+    ]
+    # zs1–zs9 jump straight to a fold level, ZT's ask (2026-07-30): `3zm` from
+    # an unknown current level needs arithmetic, `zs3` does not. In markdown
+    # `zs1` reads "show only # sections", `zs2` adds ## bodies, and so on.
+    # Native `zs` (scroll cursor to the left edge) gains a `timeoutlen` wait —
+    # accepted; sideways scrolling is not part of the daily surface. The prefix
+    # guard is silent here because bare `zs` is a builtin, not a mapping.
+    ++ (map (n: {
+      mode = "n";
+      key = "zs${toString n}";
+      action.__raw = "function() vim.wo.foldlevel = ${toString n}; vim.notify('folds: level ${toString n}') end";
+      options = {
+        desc = "Set fold level to ${toString n}";
+        silent = true;
+      };
+    }) (lib.range 1 9));
   };
 }
