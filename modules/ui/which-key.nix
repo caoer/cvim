@@ -71,8 +71,8 @@ in
               }
               {
                 k = "j";
-                name = "Jujutsu";
-                icon = "󰘬";
+                name = "JSON";
+                icon = "󰘦";
               }
               {
                 k = "l";

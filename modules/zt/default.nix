@@ -14,7 +14,6 @@
     ./duckdb.nix
     ./filetypes.nix
     ./folds.nix
-    ./jj.nix
     ./keymaps.nix
     ./leader-parity.nix
     ./multicursor.nix
