@@ -27,6 +27,14 @@ in
     plugins.markview = {
       enable = true;
       settings.preview.icon_provider = "mini";
+
+      # The full Obsidian surface — wikilinks, embeds, block refs, tags,
+      # highlights, extended checkbox states, callouts, footnotes — ships
+      # enabled at the pinned version; verified by extmark count on a file
+      # exercising each one. The preset is the one piece that is opt-in: it
+      # recolours callout lines to Obsidian's palette. `__raw` because a
+      # preset is a lua call, not data.
+      settings.markdown.block_quotes.__raw = ''require("markview.presets").block_quotes.obsidian'';
     };
 
     # The shipped settings as data, for a session that has been experimenting.

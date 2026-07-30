@@ -224,8 +224,9 @@ vim.cmd("Markview Render")
 
 ## Block quotes and callouts
 
-`obsidian` is the only shipped block-quote preset: it recolours the callout
-set to markview's palette.
+`obsidian` is the only block-quote preset, and cvim ships with it applied: it
+recolours the callout set to markview's palette. The block below re-applies it,
+which is useful after a reset:
 
 ```lua
 require("markview").setup({
@@ -233,6 +234,11 @@ require("markview").setup({
 })
 vim.cmd("Markview Render")
 ```
+
+The rest of the Obsidian surface — `[[wikilinks]]`, `![[embeds]]`,
+`[[page#^block]]` references, `#tags`, `==highlights==`, the extended checkbox
+states, footnotes, front matter — needs no enabling: every one is on by
+default at the pinned version.
 
 > [!NOTE]
 > A callout to look at while you flip presets.
