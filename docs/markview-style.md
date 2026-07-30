@@ -132,7 +132,7 @@ No presets here — the markers are set piece by piece.
 require("markview").setup({
   markdown = {
     list_items = {
-      shift_width = 4,  -- columns of indent added per nesting level
+      shift_width = 2,  -- columns of indent added per nesting level
       wrap = true,      -- continuation lines line up under the text
 
       marker_minus = { text = "●", hl = "MarkviewListItemMinus", add_padding = true },
@@ -158,7 +158,7 @@ vim.cmd("Markview Render")
 require("markview").setup({
   markdown = {
     code_blocks = {
-      style = "simple",          -- "block" draws a padded frame, "simple" only labels
+      style = "block",          -- "block" draws a padded frame, "simple" only labels
       sign = true,              -- language icon in the sign column
       label_direction = "right",
       min_width = 60,
@@ -176,7 +176,7 @@ local presets = require("markview.presets")
 
 require("markview").setup({
   markdown = {
-    tables = presets.tables.double,          -- none | single | double | rounded | solid
+    tables = presets.tables.rounded,          -- none | single | double | rounded | solid
     horizontal_rules = presets.horizontal_rules.thick, -- thin | thick | double | dashed | dotted | solid | arrowed
   },
 })
@@ -197,7 +197,7 @@ require("markview").setup({
     tables = {
       block_decorator = true,  -- draw the top and bottom borders
       use_virt_lines = false,  -- true puts those borders on virtual lines
-      strict = false,          -- true drops leading/trailing cell whitespace
+      strict = true,          -- true drops leading/trailing cell whitespace
 
       parts = {
         top = { "┌", "─", "┐", "┬" },       -- left, fill, right, junction
@@ -379,7 +379,7 @@ colorscheme — which is why the render follows cvim's day/night flip. Override
 one group live:
 
 ```lua
-vim.api.nvim_set_hl(0, "MarkviewHeading1", { fg = "#ff9e64", bold = true })
+vim.api.nvim_set_hl(0, "MarkviewHeading1", { fg = "#ff9e64", bold = false })
 vim.cmd("Markview Render")
 ```
 

@@ -35,6 +35,13 @@ in
       # recolours callout lines to Obsidian's palette. `__raw` because a
       # preset is a lua call, not data.
       settings.markdown.block_quotes.__raw = ''require("markview.presets").block_quotes.obsidian'';
+
+      # Deltas from the plugin defaults, settled live in
+      # docs/markview-style.md. Everything the doc shows and this file does
+      # not set — code block style "block", rounded table borders, list
+      # wrap — is the default already.
+      settings.markdown.list_items.shift_width = 2;
+      settings.markdown.tables.strict = true;
     };
 
     # How far markview lightens `Normal`'s background per element — lower is
