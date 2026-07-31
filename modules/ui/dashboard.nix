@@ -22,8 +22,9 @@
 # notifications.nix, and two notification backends would fight over vim.notify.
 # The `false` is the mechanism that keeps it off, not a comment about intent.
 #
-# `image` is deliberately not mentioned at all — deferred to its own unit
-# (decisions/u4a-snacks-image.md). Naming the key would enable it.
+# `image` is deliberately not mentioned here — image.nix owns that key, as the
+# unit decisions/u4a-snacks-image.md deferred to. Naming it here would enable
+# it outside that module's gate.
 #
 # The picker-backed keys are conditional on `cvim.picker.enable` because they call
 # `Snacks.dashboard.pick`, which needs a picker from the picker layer. Four of

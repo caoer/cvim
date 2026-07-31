@@ -104,6 +104,22 @@
       '';
     };
 
+    image.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      example = false;
+      description = ''
+        Whether to render images and mermaid diagrams in the editor via
+        snacks.image — inline in a markdown buffer when the terminal speaks
+        kitty unicode placeholders, in a floating window when it does not.
+
+        `true` ships mermaid-cli and imagemagick, measured at 479 MiB of
+        closure. That cost is the reason this is an option: the server
+        profile turns it off, and `false` is the right answer on any host
+        that reads markdown but never needs the diagram drawn.
+      '';
+    };
+
     dashboard.enable = lib.mkOption {
       type = lib.types.bool;
       default = true;

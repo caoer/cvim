@@ -30,6 +30,8 @@
 #                  backwards.
 #   bufferline     Owns the tab line, which is on screen from the first buffer.
 #   dashboard      Draws at VimEnter. There is nothing to defer to.
+#   image          Not a plugin of its own — a module inside the single
+#                  snacks setup() call, which is already eager above.
 #
 # GENUINE LAZY CANDIDATES, deliberately not deferred yet, pending an owner for
 # the lazy-loading provider:
@@ -57,5 +59,7 @@
     ./smartcolumn.nix
     ./dashboard.nix
     ./statusline.nix
+    ./image.nix
+    ./image-puppeteer.nix
   ];
 }

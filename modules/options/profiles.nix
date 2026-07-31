@@ -44,6 +44,11 @@ in
   config = lib.mkIf (cfg.profile == "server") {
     cvim.lang.enable = lib.mkDefault false;
 
+    # Image rendering carries mermaid-cli + imagemagick, measured at 479 MiB
+    # (decisions/u4a-snacks-image.md) — the same closure-size reason cnixvim
+    # force-disabled snacks.image on its server profile.
+    cvim.ui.image.enable = lib.mkDefault false;
+
     # These three rows hold the SAME 1.21 GB of clang/llvm/apple-sdk, so any one
     # of them alone reads near zero and only the combination moves. Together they
     # take aarch64-darwin `server` from 2,261,694,280 B to 761,696,608 B.
