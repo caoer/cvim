@@ -29,6 +29,7 @@
     ./nix.nix
     ./python.nix
     ./rust.nix
+    ./toml.nix
     ./typescript.nix
     ./web.nix
   ];

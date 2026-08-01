@@ -1,7 +1,7 @@
 # `cvim.lang` — Per-language toolchains.
 #
-# One `cvim.lang.<language>` block per language, twelve of them, every one the
-# same six options generated from one `mkLang`. The shape cannot drift between
+# One `cvim.lang.<language>` block per language, thirteen of them, every one
+# the same six options generated from one `mkLang`. The shape cannot drift between
 # languages because there is only one copy of it. A language module
 # (`modules/lang/<language>.nix`) reads its own block and nothing else.
 #
@@ -15,7 +15,7 @@
 # the valid values.
 #
 # `grammars`, `formatters` and `linters` stay `str`. Enumerating them for
-# twelve languages would make this file a bottleneck for the two units that do
+# thirteen languages would make this file a bottleneck for the two units that do
 # not own it, and the check belongs one level down anyway: **each language
 # module maps every name it accepts to a concrete package**, so an unknown name
 # throws there. That map is the contract, not a convenience — a module that
@@ -36,7 +36,7 @@
 # Per D4. The `default` profile enables the languages actually written on this
 # machine; `java`, `csharp`, `cpp` and `rust` are off everywhere and come back
 # only through host-side `extendModules`. The `server` profile enables none of
-# the twelve — that is what the profile is for — and `cvim.lang.enable` in
+# the thirteen — that is what the profile is for — and `cvim.lang.enable` in
 # `profiles.nix` turns the area off above them as well. Both levels move,
 # because a server host that re-enables the area to get one language should get
 # that one language, not the workstation's eight.
@@ -282,6 +282,14 @@ let
       # §6 row 12: markdown linters stay off. Not an oversight — the linters
       # were not installed and popped an ENOENT dialog on every write.
       linters = [ ];
+    };
+
+    toml = mkLang {
+      language = "TOML";
+      knownServers = [ "taplo" ];
+      servers = [ "taplo" ];
+      grammars = [ "toml" ];
+      formatters = [ "taplo" ];
     };
 
     # (8b)
