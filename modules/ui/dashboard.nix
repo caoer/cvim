@@ -1,8 +1,10 @@
 # Startup screen — snacks.dashboard.
 #
 # ZT chose this over mini-starter on 2026-07-27 for the look, knowing the costs;
-# see decisions/u4a-dashboard.md in the session directory. The banner and the keys
-# menu are what he approved, so the header is left at snacks' default.
+# see decisions/u4a-dashboard.md in the session directory. The keys menu is what
+# he approved. The banner says CVIM (2026-08-01, ZT): same ANSI-Shadow glyphs as
+# snacks' NEOVIM default — V/I/M lifted from it, C from the same figlet font —
+# so the style is byte-compatible with the stock look.
 #
 # TWO THINGS HERE ARE LOAD-BEARING AND LOOK OPTIONAL.
 #
@@ -59,6 +61,10 @@ in
 
         dashboard = {
           enabled = true;
+
+          # No trailing newline: snacks splits the header on "\n", so a final
+          # newline would render as one blank banner row.
+          preset.header = " ██████╗██╗   ██╗██╗███╗   ███╗\n██╔════╝██║   ██║██║████╗ ████║\n██║     ██║   ██║██║██╔████╔██║\n██║     ╚██╗ ██╔╝██║██║╚██╔╝██║\n╚██████╗ ╚████╔╝ ██║██║ ╚═╝ ██║\n ╚═════╝  ╚═══╝  ╚═╝╚═╝     ╚═╝";
 
           sections = [
             { section = "header"; }
