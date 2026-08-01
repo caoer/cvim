@@ -158,8 +158,11 @@
     smartcolumn = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true;
-        example = false;
+        # Off since 2026-08-01: ZT read the earned column as stray visual
+        # noise ("turn off the indent guide"). The area stays as an option so
+        # a host that wants the guide back sets one line.
+        default = false;
+        example = true;
         description = ''
           Whether to draw a column guide, and only in buffers that have a line
           long enough to earn one.
