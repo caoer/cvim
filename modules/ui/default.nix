@@ -32,6 +32,9 @@
 #   dashboard      Draws at VimEnter. There is nothing to defer to.
 #   image          Not a plugin of its own — a module inside the single
 #                  snacks setup() call, which is already eager above.
+#   color-picker   Highlighting must attach to the first buffer. Its setup()
+#                  is deliberately cheap and defers the real work behind its
+#                  own autocmds, so there is nothing left worth deferring.
 #
 # GENUINE LAZY CANDIDATES, deliberately not deferred yet, pending an owner for
 # the lazy-loading provider:
@@ -61,5 +64,6 @@
     ./statusline.nix
     ./image.nix
     ./image-puppeteer.nix
+    ./color-picker.nix
   ];
 }

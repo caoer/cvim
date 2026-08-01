@@ -133,6 +133,28 @@
       '';
     };
 
+    colorPicker.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      example = false;
+      description = ''
+        Whether to paint color literals — `#6c7086`, `rgb()`, `hsl()`,
+        `oklch()`, hex numbers — in their own color while editing, and to
+        bind `<leader>tc` to a graphical picker that edits the value under
+        the cursor in Oklch color space.
+
+        The picker is a native application (`oklch-color-picker` from
+        nixpkgs, ~10 MiB over what the editor already carries). It opens in
+        its own window, so it needs a display; the in-buffer highlighting
+        does not, and works over plain SSH.
+
+        `false` removes the highlighting, the keymap and the app together.
+        That is the right answer when another colorizer is being trialled —
+        two plugins painting the same literals cannot be told apart — or
+        when a highlight bug needs bisecting.
+      '';
+    };
+
     smartcolumn = {
       enable = lib.mkOption {
         type = lib.types.bool;
