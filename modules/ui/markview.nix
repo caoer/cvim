@@ -14,13 +14,36 @@
 #   empty   — a file with no markup gets no decorations at all: a plain text
 #             buffer measured zero extmarks, so markview adds nothing rather than
 #             adding an empty overlay.
-#   partial — at 80 columns a wide table renders inside the window and a long
-#             line gets neovim's own `@@@` continuation marker; nothing overlaps.
+#   partial — at 80 columns a wide table is fitted to the window by
+#             markview-smart-tables (columns shrink, cells word-wrap, borders
+#             intact); a long prose line soft-wraps as plain text.
 #   error   — no treesitter parser for the buffer's language means the code-block
 #             body renders unhighlighted inside a still-correct block frame.
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.cvim.ui;
+
+  # Vendored from ZT's fork, not upstream: upstream is small and low-traffic,
+  # so the fork is the review gate — a version bump means re-reading the diff
+  # there first, never tracking upstream HEAD blind. The fork + rev are
+  # documented in the llm-wiki as a source. Pure Lua, no build step.
+  markview-smart-tables = pkgs.vimUtils.buildVimPlugin {
+    pname = "markview-smart-tables-nvim";
+    version = "unstable-2026-06-22";
+    src = pkgs.fetchFromGitHub {
+      owner = "caoer";
+      repo = "markview-smart-tables.nvim";
+      rev = "01134a5bf48f1b7abe27b26a6b89262685bb309f";
+      hash = "sha256-wDJY9+tQBZEFbzqUouITxjbLKLtHqm6mcRLxkVLIa+M=";
+    };
+    doCheck = false;
+    meta.homepage = "https://github.com/caoer/markview-smart-tables.nvim";
+  };
 in
 {
   config = lib.mkIf (cfg.enable && cfg.markview.enable) {
@@ -42,7 +65,32 @@ in
       # wrap — is the default already.
       settings.markdown.list_items.shift_width = 2;
       settings.markdown.tables.strict = true;
+
+      # Wide tables under 'wrap': stock markview bails when a wrapped table
+      # is ≥90% of the window (renderers/markdown.lua, its own comment reads
+      # "BUG, wrap breaks table rendering") — inline virt_text is positioned
+      # by buffer column, and soft-wrap breaks at raw columns, so the borders
+      # cannot survive a wrapped line. markview-smart-tables takes over the
+      # table renderer: tables that fit keep the stock render, oversized ones
+      # are re-emitted as virtual lines over the concealed source — columns
+      # shrink widest-first, cells word-wrap, borders reuse the `parts`/`hl`
+      # theme above. Fit options stay at the plugin defaults (wrap_width 0.9,
+      # wrap_minwidth 5), so no setup() call.
+      settings.renderers.markdown_table.__raw = ''
+        function(buffer, item)
+          require("markview-smart-tables").render(buffer, item)
+        end
+      '';
+
+      # A fitted table is fully virtual, so the cursor is invisible while on
+      # it. Hybrid mode is the escape hatch: in normal mode the node under
+      # the cursor shows raw markdown — navigable, editable — and re-renders
+      # on leave. "n" is the only mode where this can apply: markview's
+      # default preview.modes is n/no/c, and insert already shows raw.
+      settings.preview.hybrid_modes = [ "n" ];
     };
+
+    extraPlugins = [ markview-smart-tables ];
 
     # How far markview lightens `Normal`'s background per element — lower is
     # dimmer. These are globals, not settings: markview reads them off `vim.g`
