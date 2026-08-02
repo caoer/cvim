@@ -23,8 +23,13 @@
 # empty:   yanking an empty selection sends an empty payload; pbcopy clears the
 #          pasteboard and OSC 52 emits an empty sequence. Neither errors.
 # partial: outside tmux and outside a local mac, copy still works (OSC 52 goes
-#          straight to the terminal) but paste returns `{}` — the tmux buffer
-#          is the only paste source. `"+p` is a silent no-op, by construction.
+#          straight to the terminal) and paste falls back to the last yank this
+#          instance copied. Cross-instance paste still needs the tmux buffer.
+#          Earned 2026-08-02: cvim under herdr (SSH, no $TMUX) — with
+#          `unnamedplus`, the old "paste returns {} by construction" made plain
+#          `yy` → `p` a silent no-op. The tmux probe is also gated on $TMUX now:
+#          without it, `tmux save-buffer` reads the DEFAULT-socket server —
+#          whatever unrelated agent left in its buffers — not this terminal.
 # error:   `pbcopy` missing (non-darwin reached via the mac branch) cannot
 #          happen — the branch is guarded on `has("mac")`. `io.popen` failing
 #          for pbpaste would raise; it is the same call the whole platform
@@ -61,6 +66,8 @@ in
     extraConfigLua = ''
       local is_local_mac = vim.fn.has("mac") == 1 and vim.env.SSH_CONNECTION == nil
 
+      local zt_clip_cache = nil
+
       local function zt_copy_fn(reg)
         if is_local_mac then
           return function(lines, regtype)
@@ -71,6 +78,7 @@ in
         end
         local osc52_fn = require("vim.ui.clipboard.osc52").copy(reg)
         return function(lines, regtype)
+          zt_clip_cache = { lines = { unpack(lines) }, regtype = regtype }
           if regtype == "V" then
             local copy = { unpack(lines) }
             table.insert(copy, "")
@@ -92,18 +100,23 @@ in
           end
           return lines
         end
-        local h = io.popen("tmux save-buffer - 2>/dev/null")
-        if h then
-          local content = h:read("*a")
-          h:close()
-          if content and content ~= "" then
-            local lines = vim.split(content, "\n", { plain = true })
-            if #lines > 1 and lines[#lines] == "" then
-              table.remove(lines)
-              return lines, "V"
+        if vim.env.TMUX then
+          local h = io.popen("tmux save-buffer - 2>/dev/null")
+          if h then
+            local content = h:read("*a")
+            h:close()
+            if content and content ~= "" then
+              local lines = vim.split(content, "\n", { plain = true })
+              if #lines > 1 and lines[#lines] == "" then
+                table.remove(lines)
+                return lines, "V"
+              end
+              return lines
             end
-            return lines
           end
+        end
+        if zt_clip_cache then
+          return { unpack(zt_clip_cache.lines) }, zt_clip_cache.regtype
         end
         return {}
       end
