@@ -9,6 +9,10 @@
 {
   imports = [
     ./options
+    # Cross-layer build-time assertions (U12). Not a layer and not an area:
+    # every property it checks is violated by two layers interacting, so no
+    # single layer is positioned to assert it.
+    ./assertions.nix
 
     # Not layers: tree-wide invariants, asserted on every build.
     # platform-guard reads the SOURCE of every module above; keymap-guard reads

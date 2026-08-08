@@ -1,7 +1,21 @@
-# Window navigation, buffer switching, and the manual-format binding.
+# Window navigation and buffer switching.
 #
 # Plugin-specific keymaps live with their plugin in ./plugins.nix, so this
 # file stays the editor-wide set.
+#
+# THE MANUAL-FORMAT BINDING IS NOT HERE, and its absence is the point. This
+# file carried a second `<leader>F` bound to the same `require('conform')`
+# call as `modules/core/format.nix`, in modes `[n x]` against core's `[n v]`.
+# `n <leader>F` was therefore defined twice; `vim.keymap.set` overwrites
+# silently, so whichever module the merge happened to write last won, and
+# nothing reported it. U12's duplicate-(mode, lhs) assertion caught it on its
+# first run.
+#
+# Core's copy is the one that survives: conform is core's plugin, so its
+# keymap belongs with it, and `v` is a superset of `x` so nothing was lost.
+# The copy here was also wrong in the one shape that distinguished them — with
+# `cvim.editor.enable = false` and utilities on, it was the only `<leader>F`
+# left and it called into a conform that was never configured.
 #
 # `<leader>` is Space. `modules/core/leader.nix` owns the global and it is live
 # on main. (This header used to say cvim set no `mapleader` anywhere; U3 landed
@@ -31,9 +45,6 @@
 # Editor-surface states:
 #   empty    A window-nav key with no window in that direction is a no-op;
 #            vim does not error or wrap.
-#   error    `<leader>F` with no conform formatter for the filetype falls back
-#            to the LSP (`lsp_format = "fallback"`); with neither, conform
-#            reports it in `:messages` and the buffer is untouched.
 { config, lib, ... }:
 let
   cfg = config.cvim.utilities;
@@ -143,30 +154,11 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
-    keymaps =
-      windowNav
-      ++ tabCycle
-      ++ [
-        {
-          # Manual format. Format-on-save is off by §6 row 5 — a silent on-save
-          # rewrite corrupts files that must stay byte-exact, and the damage
-          # lands in a commit before anyone reads the diff.
-          mode = [
-            "n"
-            "x"
-          ];
-          key = "<leader>F";
-          action.__raw = "function() require('conform').format({ async = true, lsp_format = 'fallback' }) end";
-          options = {
-            desc = "Format buffer/selection";
-            silent = true;
-          };
-        }
-        # NO `gv` BINDING. cnixvim mapped `gv` to `:!code %` (open in VS Code),
-        # shadowing the built-in reselect-last-visual. U9b ported it and flagged
-        # the shadowing rather than deciding, which is the only reason it reached
-        # ZT as a question; ZT dropped it 2026-07-27. `gv` is the built-in
-        # everywhere again — in normal mode and in visual mode.
-      ];
+    # NO `gv` BINDING. cnixvim mapped `gv` to `:!code %` (open in VS Code),
+    # shadowing the built-in reselect-last-visual. U9b ported it and flagged
+    # the shadowing rather than deciding, which is the only reason it reached
+    # ZT as a question; ZT dropped it 2026-07-27. `gv` is the built-in
+    # everywhere again — in normal mode and in visual mode.
+    keymaps = windowNav ++ tabCycle;
   };
 }
